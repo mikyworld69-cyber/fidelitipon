@@ -1,0 +1,112 @@
+/* ========================================
+   ESTILOS GLOBALES FIDELITIPON
+======================================== */
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: "Roboto", Arial, sans-serif;
+}
+
+/* Fondo general */
+body {
+    background: #f4f4f4;
+    color: #2c3e50;
+}
+
+/* Tarjetas */
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    margin-bottom: 20px;
+}
+
+/* Títulos */
+h1, h2, h3 {
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+/* Inputs */
+input, select, textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid #bbb;
+    font-size: 16px;
+    margin-bottom: 15px;
+    background: #fff;
+}
+
+/* Botón principal */
+.btn {
+    display: inline-block;
+    padding: 12px 20px;
+    background: #3498db;
+    color: white !important;
+    text-align: center;
+    border-radius: 12px;
+    font-size: 17px;
+    cursor: pointer;
+    border: none;
+}
+
+.btn:hover {
+    background: #2980b9;
+}
+
+/* Botón secundario */
+.btn-sec {
+    background: #1abc9c;
+}
+
+.btn-sec:hover {
+    background: #16a085;
+}
+
+/* Estados */
+.badge {
+    padding: 6px 12px;
+    border-radius: 10px;
+    color: white;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.badge-activo { background: #27ae60; }
+.badge-usado { background: #7f8c8d; }
+.badge-caducado { background: #c0392b; }
+
+/* Listas */
+.list-item {
+    padding: 15px;
+    border-radius: 12px;
+    background: white;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+}
+
+/* Encabezado App */
+.app-header {
+    background: #3498db;
+    padding: 18px;
+    color: white;
+    font-size: 22px;
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+/* Espaciado */
+.mt-20 { margin-top: 20px; }
+.mb-20 { margin-bottom: 20px; }
+
+/* Contenedor general mobile */
+.container {
+    width: 92%;
+    max-width: 520px;
+    margin: 0 auto 40px auto;
+}
