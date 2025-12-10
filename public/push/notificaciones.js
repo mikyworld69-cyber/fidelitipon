@@ -1,37 +1,42 @@
-console.log("JS de notificaciones cargado.");
+document.addEventListener("DOMContentLoaded", async () => {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        console.log("Push no soportado");
+        return;
+    }
 
-const PUBLIC_VAPID = "BA4M737w3LmyAiXYmDwOihcwEflN-o9Axjz7wBBlo7ICzjhURi6EoqRpOA9phRgpaKTOuKzNlNCl2n8y2M632UI";
+    const sw = await navigator.serviceWorker.register("/sw-pwa.js");
+    console.log("Service Worker registrado:", sw);
 
-if ("serviceWorker" in navigator && "PushManager" in window) {
-    
-    navigator.serviceWorker.register("/sw-pwa.js")
-    .then(reg => {
-        console.log("SW registrado:", reg);
+    let permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+        console.warn("Notificaciones denegadas");
+        return;
+    }
 
-        return Notification.requestPermission().then(permission => {
-            if (permission !== "granted") {
-                console.log("Notificaciones no permitidas");
-                return;
-            }
+    const vapidPublicKey = "BA4M737w3LmyAiXYmDwOihcwEflN-o9Axjz7wBBlo7ICzjhURi6EoqRpOA9phRgpaKTOuKzNlNCl2n8y2M632UI";
 
-            return reg.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: PUBLIC_VAPID
-            });
-        });
-    })
-    .then(sub => {
-        if (!sub) return;
-        console.log("Suscripción creada:", sub);
+    const subscription = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+    });
 
-        return fetch("/push/guardar_suscripcion_push.php", {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(sub)
-        });
-    })
-    .catch(err => console.error("Error:", err));
+    // Enviar suscripción al servidor
+    await fetch("/push/push_subscribe.php", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscription)
+    });
 
-} else {
-    console.log("SW o Push no soportado.");
+    console.log("Suscripción enviada al servidor.");
+});
+
+/* Convertir VAPID key */
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding)
+        .replace(/-/g, '+')
+        .replace(/_/g, '/');
+
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
 }
