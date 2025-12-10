@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . "/../../config/db.php";
 
-// Si ya está logueado, enviamos al panel
+// Si ya está logueado → entra directo
 if (isset($_SESSION["usuario_id"])) {
     header("Location: panel_usuario.php");
     exit;
@@ -10,33 +10,34 @@ if (isset($_SESSION["usuario_id"])) {
 
 $mensaje = "";
 
-if (isset($_POST["login"])) {
+// Cuando envía el formulario
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $telefono  = trim($_POST["telefono"]);
-    $password  = trim($_POST["password"]);
+    $telefono = trim($_POST["telefono"]);
+    $password = trim($_POST["password"]);
 
-    if ($telefono === "" || $password === "") {
-        $mensaje = "Rellena todos los campos.";
-    } else {
+    // Buscar usuario
+    $sql = $conn->prepare("SELECT id, password FROM usuarios WHERE telefono = ?");
+    $sql->bind_param("s", $telefono);
+    $sql->execute();
+    $res = $sql->get_result();
 
-        $sql = $conn->prepare("SELECT id, password_hash FROM usuarios WHERE telefono = ?");
-        $sql->bind_param("s", $telefono);
-        $sql->execute();
-        $result = $sql->get_result();
+    if ($res->num_rows === 1) {
+        $user = $res->fetch_assoc();
 
-        if ($result->num_rows == 0) {
-            $mensaje = "Teléfono no encontrado.";
+        // Comparar contraseñas SIN HASH (tu DB no tiene hash)
+        if ($password === $user["password"]) {
+
+            $_SESSION["usuario_id"] = $user["id"];
+            header("Location: panel_usuario.php");
+            exit;
+
         } else {
-            $user = $result->fetch_assoc();
-
-            if (password_verify($password, $user["password_hash"])) {
-                $_SESSION["usuario_id"] = $user["id"];
-                header("Location: panel_usuario.php");
-                exit;
-            } else {
-                $mensaje = "Contraseña incorrecta.";
-            }
+            $mensaje = "❌ Contraseña incorrecta.";
         }
+
+    } else {
+        $mensaje = "❌ No existe ninguna cuenta con ese teléfono.";
     }
 }
 ?>
@@ -49,45 +50,78 @@ if (isset($_POST["login"])) {
 <link rel="stylesheet" href="/public/app/app.css">
 
 <style>
-.login-container {
-    max-width: 420px;
-    margin: 80px auto;
+body {
+    background: #f0f2f5;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
 }
-a { color: #3498db; }
+.login-box {
+    width: 330px;
+    background: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+}
+.login-box h2 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #3498db;
+}
+.input {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #bbb;
+    font-size: 16px;
+    margin-bottom: 15px;
+}
+.btn {
+    width: 100%;
+    padding: 12px;
+    background: #3498db;
+    color: white;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    margin-top: 5px;
+}
+.btn:hover { background: #2980b9; }
+.error {
+    background: #e74c3c;
+    color: white;
+    padding: 12px;
+    border-radius: 10px;
+    text-align: center;
+    margin-bottom: 10px;
+}
+.link {
+    display: block;
+    text-align: center;
+    margin-top: 12px;
+    color: #3498db;
+    text-decoration: none;
+}
 </style>
-
 </head>
 <body>
 
-<div class="container login-container">
+<div class="login-box">
+    <h2>Fidelitipon</h2>
 
-    <div class="card">
-        <h2 style="text-align:center; margin-bottom:20px;">Iniciar Sesión</h2>
+    <?php if ($mensaje): ?>
+        <div class="error"><?= $mensaje ?></div>
+    <?php endif; ?>
 
-        <?php if ($mensaje): ?>
-            <div class="msg" style="background:#c0392b; color:white;">
-                <?= $mensaje ?>
-            </div>
-        <?php endif; ?>
+    <form method="POST">
+        <input class="input" type="text" name="telefono" placeholder="Teléfono" required>
+        <input class="input" type="password" name="password" placeholder="Contraseña" required>
 
-        <form method="POST">
+        <button class="btn">Entrar</button>
+    </form>
 
-            <label>Teléfono</label>
-            <input type="text" name="telefono" placeholder="600123456" required>
-
-            <label>Contraseña</label>
-            <input type="password" name="password" placeholder="Tu contraseña" required>
-
-            <button class="btn" type="submit" name="login">Entrar</button>
-        </form>
-
-        <p style="text-align:center; margin-top:15px;">
-            ¿No tienes cuenta?
-            <a href="register.php">Crear cuenta</a>
-        </p>
-
-    </div>
-
+    <a class="link" href="register.php">Crear cuenta nueva</a>
 </div>
 
 </body>
