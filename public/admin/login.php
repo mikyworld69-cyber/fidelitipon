@@ -1,4 +1,5 @@
 <?php
+var_dump($admin);
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
