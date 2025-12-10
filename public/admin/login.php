@@ -17,8 +17,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $password = trim($_POST["password"]);
 
     // Consulta por email
-    var_dump($_POST);
-exit;
 
     $sql = $conn->prepare("
         SELECT id, usuario, email, password 
@@ -28,6 +26,13 @@ exit;
     ");
     $sql->bind_param("s", $email);
     $sql->execute();
+    $res = $sql->get_result();
+
+    var_dump($res->num_rows);
+    
+    exit;
+
+    
     $res = $sql->get_result();
 
     if ($res->num_rows === 1) {
