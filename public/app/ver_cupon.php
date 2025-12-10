@@ -124,6 +124,28 @@ $qrURL = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" . urle
     Cupón
 </div>
 
+    <?php if (isset($_GET["msg"])): ?>
+    <div class="card" style="background:#dff9fb; border-left:5px solid #22a6b3; margin:15px;">
+        <?php
+        switch($_GET["msg"]) {
+            case "ok":
+                echo "✔ Cupón marcado como usado correctamente.";
+                break;
+            case "caducado":
+                echo "⚠ Este cupón ya estaba caducado.";
+                break;
+            case "noactivo":
+                echo "⚠ Este cupón no está activo.";
+                break;
+            case "notfound":
+                echo "❌ Cupón no encontrado.";
+                break;
+        }
+        ?>
+    </div>
+<?php endif; ?>
+
+
 <div class="cupon-container">
 
     <div class="cupon-box">
