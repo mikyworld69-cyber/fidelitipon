@@ -1,6 +1,7 @@
 <?php
 session_start();
-require_once __DIR__ . "/../../config/db.php";
+require_once __DIR__ . '/../../config/db.php';
+include __DIR__ . '/../includes/head_app.php'; // HEAD UNIVERSAL
 
 if (!isset($_SESSION["usuario_id"])) {
     header("Location: login.php");
@@ -9,185 +10,126 @@ if (!isset($_SESSION["usuario_id"])) {
 
 $user_id = $_SESSION["usuario_id"];
 
-// Obtener datos del usuario
+// OBTENER DATOS ACTUALES
 $sql = $conn->prepare("SELECT nombre, telefono FROM usuarios WHERE id = ?");
 $sql->bind_param("i", $user_id);
 $sql->execute();
 $user = $sql->get_result()->fetch_assoc();
 
-// -------------------------
-// ACTUALIZAR PERFIL
-// -------------------------
 $mensaje = "";
 
+// ACTUALIZAR PERFIL
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $nombre = trim($_POST["nombre"]);
+    $telefono = trim($_POST["telefono"]);
 
-    $nuevo_nombre = trim($_POST["nombre"]);
-    $nueva_pass   = trim($_POST["password"]);
+    if ($nombre === "" || $telefono === "") {
+        $mensaje = "Todos los campos son obligatorios.";
+    } else {
+        $up = $conn->prepare("UPDATE usuarios SET nombre = ?, telefono = ? WHERE id = ?");
+        $up->bind_param("ssi", $nombre, $telefono, $user_id);
+        $up->execute();
 
-    // Actualizar solo nombre
-    if ($nuevo_nombre !== $user["nombre"]) {
-        $sqlUpdate = $conn->prepare("UPDATE usuarios SET nombre = ? WHERE id = ?");
-        $sqlUpdate->bind_param("s", $nuevo_nombre, $user_id);
-        $sqlUpdate->execute();
+        $mensaje = "Cambios guardados correctamente.";
+        $user["nombre"] = $nombre;
+        $user["telefono"] = $telefono;
     }
-
-    // Actualizar contraseña solo si se ha escrito algo
-    if (!empty($nueva_pass)) {
-        $pass_hash = password_hash($nueva_pass, PASSWORD_BCRYPT);
-        $sqlPass = $conn->prepare("UPDATE usuarios SET password_hash = ? WHERE id = ?");
-        $sqlPass->bind_param("s", $pass_hash, $user_id);
-        $sqlPass->execute();
-    }
-
-    $mensaje = "✅ Perfil actualizado correctamente";
-
-    // refrescar datos
-    header("Refresh:1");
 }
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-<title>Mi Perfil | Fidelitipon</title>
-
-<!-- PWA -->
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#3498db">
-<link rel="icon" href="/assets/img/icon-192.png">
 
 <link rel="stylesheet" href="/app/app.css">
 
 <style>
-body {
-    background: #f5f6fa;
-    margin: 0;
-    padding-bottom: 80px;
-    font-family: 'Roboto', sans-serif;
-}
-
-.app-header {
-    background: #3498db;
-    padding: 18px;
-    color: white;
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
-}
-
-.container {
-    padding: 15px;
-}
-
-.card {
+.perfil-box {
     background: white;
-    padding: 18px;
+    padding: 20px;
     border-radius: 14px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.07);
-    margin-bottom: 15px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    margin: 15px;
+}
+
+.label {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 14px;
 }
 
 input {
     width: 100%;
     padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 12px;
-    margin-bottom: 15px;
     font-size: 16px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    margin-bottom: 15px;
 }
 
-.btn {
+.btn-save {
     width: 100%;
-    background: #3498db;
-    color: white;
     padding: 14px;
+    background: #3498db;
     border-radius: 12px;
-    border: none;
+    color: white;
+    text-align: center;
+    display: block;
+    margin-top: 10px;
     font-size: 17px;
-    cursor: pointer;
 }
 
-.btn:hover {
-    background: #2d85be;
+.btn-save:hover {
+    background: #2980b9;
 }
 
 .msg {
-    background: #2ecc71;
-    color: white;
+    background: #1abc9c;
     padding: 12px;
-    text-align: center;
     border-radius: 10px;
-    margin-bottom: 10px;
-}
-
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: white;
-    border-top: 1px solid #ddd;
-    display: flex;
-    justify-content: space-around;
-    padding: 12px 0;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
-}
-
-.bottom-nav a {
     text-align: center;
-    color: #2c3e50;
-    text-decoration: none;
+    margin-bottom: 10px;
+    color: white;
 }
 
-.bottom-nav a.active {
-    color: #3498db;
-    font-weight: bold;
+.btn-danger {
+    width: 100%;
+    padding: 14px;
+    background: #e74c3c;
+    border-radius: 12px;
+    color: white;
+    display: block;
+    text-align: center;
+    margin-top: 15px;
+    font-size: 17px;
 }
 </style>
 
-</head>
-<body>
 
 <div class="app-header">Mi Perfil</div>
 
-<div class="container">
+<div class="perfil-box">
 
     <?php if ($mensaje): ?>
         <div class="msg"><?= $mensaje ?></div>
     <?php endif; ?>
 
-    <div class="card">
-        <form method="POST">
+    <form method="POST">
 
-            <label>Nombre</label>
-            <input type="text" name="nombre" value="<?= htmlspecialchars($user["nombre"]) ?>" required>
+        <label class="label">Nombre</label>
+        <input type="text" name="nombre" value="<?= htmlspecialchars($user["nombre"]) ?>">
 
-            <label>Teléfono (no editable)</label>
-            <input type="text" value="<?= htmlspecialchars($user["telefono"]) ?>" disabled>
+        <label class="label">Teléfono</label>
+        <input type="text" name="telefono" value="<?= htmlspecialchars($user["telefono"]) ?>">
 
-            <label>Nueva Contraseña (opcional)</label>
-            <input type="password" name="password" placeholder="Escribe nueva contraseña">
+        <button class="btn-save">Guardar Cambios</button>
+    </form>
 
-            <button class="btn">Guardar Cambios</button>
-        </form>
-    </div>
+    <a class="btn-save" href="cambiar_password.php">🔐 Cambiar contraseña</a>
+
+    <a class="btn-danger" href="../logout.php">Cerrar sesión</a>
 
 </div>
 
+<!-- BOTTOM NAV -->
 <div class="bottom-nav">
-    <a href="/app/panel_usuario.php">🏠 Inicio</a>
-    <a class="active" href="/app/perfil.php">👤 Perfil</a>
-    <a href="/logout.php">🚪 Salir</a>
+    <a href="panel_usuario.php">🏠 Inicio</a>
+    <a href="perfil.php" class="active">👤 Perfil</a>
+    <a href="../logout.php">🚪 Salir</a>
 </div>
-
-<script>
-if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw-pwa.js");
-}
-</script>
-
-</body>
-</html>
