@@ -2,8 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-
-// Si ya está logueado → entra
+// Si ya está logueado → entra directo
 if (isset($_SESSION["admin_id"])) {
     header("Location: dashboard.php");
     exit;
@@ -11,14 +10,14 @@ if (isset($_SESSION["admin_id"])) {
 
 $mensaje = "";
 
-// Proceso login
+// PROCESO LOGIN
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $usuario = trim($_POST["usuario"]);
+    $email = trim($_POST["email"]);
     $password = trim($_POST["password"]);
 
-    $sql = $conn->prepare("SELECT id, password FROM admin WHERE usuario = ?");
-    $sql->bind_param("s", $usuario);
+    $sql = $conn->prepare("SELECT id, password FROM admin WHERE email = ?");
+    $sql->bind_param("s", $email);
     $sql->execute();
     $res = $sql->get_result();
 
@@ -33,90 +32,125 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $mensaje = "❌ Contraseña incorrecta.";
         }
     } else {
-        $mensaje = "❌ Usuario no encontrado.";
+        $mensaje = "❌ No existe ninguna cuenta con ese email.";
     }
 }
 ?>
-<link rel="stylesheet" href="admin.css">
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Admin Login | Fidelitipon</title>
+<title>Acceso Admin | Fidelitipon</title>
 
 <style>
+/* FONDO */
 body {
-    background: #f0f0f0;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #3498db, #9b59b6);
+    height: 100vh;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    font-family: Arial;
+    font-family: "Roboto", sans-serif;
 }
 
-.box {
+/* CONTENEDOR */
+.login-box {
     width: 350px;
     background: white;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    padding: 35px;
+    border-radius: 18px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+    animation: fadeIn 0.6s;
 }
 
-h2 {
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* TÍTULO */
+.login-box h2 {
     text-align: center;
-    margin: 0 0 20px 0;
-    color: #3498db;
+    margin-bottom: 25px;
+    color: #2c3e50;
 }
 
+/* INPUTS */
 .input {
     width: 100%;
-    padding: 12px;
-    margin: 10px 0;
-    font-size: 16px;
+    padding: 14px;
+    margin-bottom: 15px;
     border-radius: 10px;
-    border: 1px solid #bbb;
+    border: 1px solid #ccc;
+    font-size: 15px;
+    transition: 0.2s;
 }
 
+.input:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+/* BOTÓN */
 .btn {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
     background: #3498db;
     color: white;
     border-radius: 10px;
-    text-align: center;
-    cursor: pointer;
     border: none;
-    margin-top: 10px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: 0.2s;
 }
 
-.btn:hover { background: #2980b9; }
+.btn:hover {
+    background: #2980b9;
+}
 
+/* ERROR */
 .error {
     background: #e74c3c;
     color: white;
     padding: 12px;
     border-radius: 10px;
     text-align: center;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
+}
+
+/* ENLACES */
+.link {
+    text-align: center;
+    margin-top: 15px;
+}
+.link a {
+    color: #3498db;
+    text-decoration: none;
 }
 </style>
 
 </head>
 <body>
 
-<div class="box">
-    <h2>Acceso Admin</h2>
+<div class="login-box">
+
+    <h2>Panel Admin</h2>
 
     <?php if ($mensaje): ?>
         <div class="error"><?= $mensaje ?></div>
     <?php endif; ?>
 
     <form method="POST">
-        <input type="text" name="usuario" class="input" placeholder="Usuario" required>
+        <input type="email" name="email" class="input" placeholder="Correo electrónico" required>
         <input type="password" name="password" class="input" placeholder="Contraseña" required>
         <button class="btn">Entrar</button>
     </form>
+
+    <div class="link">
+        <a href="recuperar.php">¿Has olvidado tu contraseña?</a>
+    </div>
 </div>
 
 </body>
