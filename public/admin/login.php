@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-// Si ya está logueado → entra directo
+// Si ya está logueado
 if (isset($_SESSION["admin_id"])) {
     header("Location: dashboard.php");
     exit;
@@ -10,14 +10,20 @@ if (isset($_SESSION["admin_id"])) {
 
 $mensaje = "";
 
-// PROCESO LOGIN
+// Proceso login
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $email = trim($_POST["email"]);
+    $usuario = trim($_POST["usuario"]);
     $password = trim($_POST["password"]);
 
-    $sql = $conn->prepare("SELECT id, password FROM admin WHERE email = ?");
-    $sql->bind_param("s", $email);
+    // Permitir login por usuario O email
+    $sql = $conn->prepare("
+        SELECT id, usuario, email, password 
+        FROM admin 
+        WHERE usuario = ? OR email = ?
+        LIMIT 1
+    ");
+    $sql->bind_param("ss", $usuario, $usuario);
     $sql->execute();
     $res = $sql->get_result();
 
@@ -32,125 +38,90 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $mensaje = "❌ Contraseña incorrecta.";
         }
     } else {
-        $mensaje = "❌ No existe ninguna cuenta con ese email.";
+        $mensaje = "❌ Usuario o email no encontrado.";
     }
 }
 ?>
+<link rel="stylesheet" href="admin.css">
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Acceso Admin | Fidelitipon</title>
+<title>Admin Login | Fidelitipon</title>
 
 <style>
-/* FONDO */
 body {
-    margin: 0;
-    padding: 0;
-    background: linear-gradient(135deg, #3498db, #9b59b6);
-    height: 100vh;
+    background: #f0f0f0;
     display: flex;
     justify-content: center;
     align-items: center;
-    font-family: "Roboto", sans-serif;
+    height: 100vh;
+    font-family: Arial;
 }
 
-/* CONTENEDOR */
-.login-box {
+.box {
     width: 350px;
     background: white;
-    padding: 35px;
-    border-radius: 18px;
-    box-shadow: 0 8px 25px rgba(0,0,0,0.25);
-    animation: fadeIn 0.6s;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(20px); }
-    to   { opacity: 1; transform: translateY(0); }
-}
-
-/* TÍTULO */
-.login-box h2 {
+h2 {
     text-align: center;
-    margin-bottom: 25px;
-    color: #2c3e50;
+    margin: 0 0 20px 0;
+    color: #3498db;
 }
 
-/* INPUTS */
 .input {
     width: 100%;
-    padding: 14px;
-    margin-bottom: 15px;
+    padding: 12px;
+    margin: 10px 0;
+    font-size: 16px;
     border-radius: 10px;
-    border: 1px solid #ccc;
-    font-size: 15px;
-    transition: 0.2s;
+    border: 1px solid #bbb;
 }
 
-.input:focus {
-    border-color: #3498db;
-    outline: none;
-}
-
-/* BOTÓN */
 .btn {
     width: 100%;
-    padding: 14px;
+    padding: 12px;
     background: #3498db;
     color: white;
     border-radius: 10px;
-    border: none;
+    text-align: center;
     cursor: pointer;
-    font-size: 16px;
-    transition: 0.2s;
+    border: none;
+    margin-top: 10px;
 }
 
-.btn:hover {
-    background: #2980b9;
-}
+.btn:hover { background: #2980b9; }
 
-/* ERROR */
 .error {
     background: #e74c3c;
     color: white;
     padding: 12px;
     border-radius: 10px;
     text-align: center;
-    margin-bottom: 15px;
-}
-
-/* ENLACES */
-.link {
-    text-align: center;
-    margin-top: 15px;
-}
-.link a {
-    color: #3498db;
-    text-decoration: none;
+    margin-bottom: 10px;
 }
 </style>
 
 </head>
 <body>
 
-<div class="login-box">
-
-    <h2>Panel Admin</h2>
+<div class="box">
+    <h2>Acceso Admin</h2>
 
     <?php if ($mensaje): ?>
         <div class="error"><?= $mensaje ?></div>
     <?php endif; ?>
 
     <form method="POST">
-        <input type="email" name="email" class="input" placeholder="Correo electrónico" required>
+        <input type="text" name="usuario" class="input" placeholder="Usuario o Email" required>
         <input type="password" name="password" class="input" placeholder="Contraseña" required>
         <button class="btn">Entrar</button>
     </form>
-
-    <div class="link">
-        <a href="recuperar.php">¿Has olvidado tu contraseña?</a>
-    </div>
 </div>
 
 </body>
