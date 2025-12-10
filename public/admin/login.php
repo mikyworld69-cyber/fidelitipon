@@ -28,7 +28,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $sql->execute();
     $res = $sql->get_result();
 
-    var_dump("FILAS ENCONTRADAS:", $res->num_rows);
+    $row = $res->fetch_assoc();
+var_dump("ROW:", $row);
 exit;
 
 
