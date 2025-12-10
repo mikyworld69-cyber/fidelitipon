@@ -1,75 +1,96 @@
 <?php
-header("Content-Type: application/json");
 session_start();
-require_once __DIR__ . "/../config/db.php";
+header("Content-Type: application/json");
+
+require_once __DIR__ . '/../../config/db.php';
 
 if (!isset($_SESSION["admin_id"])) {
-    echo json_encode(["status" => "error", "msg" => "No autorizado"]);
+    echo json_encode(["status" => "ERROR", "mensaje" => "No autorizado."]);
     exit;
 }
 
-if (!isset($_POST["codigo"])) {
-    echo json_encode(["status" => "error", "msg" => "Código no recibido"]);
+if (!isset($_GET["codigo"])) {
+    echo json_encode(["status" => "ERROR", "mensaje" => "No se recibió ningún código."]);
     exit;
 }
 
-$codigo = trim($_POST["codigo"]);
+$codigo = trim($_GET["codigo"]);
 
-// Buscar cupón
-$sql = $conn->prepare("SELECT * FROM cupones WHERE codigo = ?");
+// ================================
+// 1. Buscar cupón por código
+// ================================
+$sql = $conn->prepare("
+    SELECT 
+        c.id,
+        c.codigo,
+        c.estado,
+        c.fecha_caducidad,
+        c.comercio_id,
+        com.nombre AS comercio_nombre
+    FROM cupones c
+    LEFT JOIN comercios com ON c.comercio_id = com.id
+    WHERE c.codigo = ?
+    LIMIT 1
+");
 $sql->bind_param("s", $codigo);
 $sql->execute();
 $res = $sql->get_result();
 
-if ($res->num_rows == 0) {
-    echo json_encode(["status" => "error", "msg" => "Cupón no encontrado"]);
+if ($res->num_rows === 0) {
+    echo json_encode(["status" => "ERROR", "mensaje" => "Cupón no encontrado."]);
     exit;
 }
 
 $cupon = $res->fetch_assoc();
 
-// Estado
+// ================================
+// 2. Validar estado del cupón
+// ================================
+
+// Si caducó
+if (!empty($cupon["fecha_caducidad"]) && strtotime($cupon["fecha_caducidad"]) < time()) {
+    echo json_encode(["status" => "CADUCADO", "mensaje" => "Cupón caducado."]);
+    exit;
+}
+
+// Si ya se usó
 if ($cupon["estado"] === "usado") {
-    echo json_encode(["status" => "error", "msg" => "Cupón ya usado"]);
+    echo json_encode(["status" => "ERROR", "mensaje" => "Este cupón ya fue validado anteriormente."]);
     exit;
 }
 
-if ($cupon["estado"] === "caducado") {
-    echo json_encode(["status" => "error", "msg" => "Cupón caducado"]);
-    exit;
-}
+// ================================
+// 3. Marcar cupón como usado
+// ================================
+$update = $conn->prepare("UPDATE cupones SET estado = 'usado' WHERE id = ?");
+$update->bind_param("i", $cupon["id"]);
+$update->execute();
 
-// Caducidad por fecha
-$hoy = date("Y-m-d");
-if ($cupon["fecha_caducidad"] < $hoy) {
+// ================================
+// 4. Registrar validación
+// ================================
+$now = date("Y-m-d H:i:s");
+$metodo = "QR";
 
-    // marcar como caducado
-    $up = $conn->prepare("UPDATE cupones SET estado = 'caducado' WHERE id = ?");
-    $up->bind_param("i", $cupon["id"]);
-    $up->execute();
-
-    echo json_encode(["status" => "error", "msg" => "El cupón ha caducado"]);
-    exit;
-}
-
-// Marcar cupón como usado
-$up = $conn->prepare("UPDATE cupones SET estado = 'usado' WHERE id = ?");
-$up->bind_param("i", $cupon["id"]);
-$up->execute();
-
-// Registrar validación
-$log = $conn->prepare("
-    INSERT INTO validaciones (cupon_id, comercio_id, metodo)
-    VALUES (?, ?, 'admin')
+$insertVal = $conn->prepare("
+    INSERT INTO validaciones (cupon_id, comercio_id, fecha_validacion, metodo)
+    VALUES (?, ?, ?, ?)
 ");
-$log->bind_param("ii", $cupon["id"], $cupon["comercio_id"]);
-$log->execute();
 
+$insertVal->bind_param("iiss",
+    $cupon["id"],
+    $cupon["comercio_id"],
+    $now,
+    $metodo
+);
+
+$insertVal->execute();
+
+// ================================
+// 5. Respuesta exitosa
+// ================================
 echo json_encode([
-    "status" => "ok",
-    "titulo" => $cupon["titulo"],
-    "descripcion" => $cupon["descripcion"],
-    "msg" => "Cupón validado correctamente."
+    "status" => "OK",
+    "mensaje" => "Cupón validado correctamente en el comercio: " . $cupon["comercio_nombre"]
 ]);
 exit;
-?>
