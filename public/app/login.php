@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . "/../../config/db.php";
 
-// Si ya tiene sesión → panel
+// Si ya está logueado
 if (isset($_SESSION["usuario_id"])) {
     header("Location: panel_usuario.php");
     exit;
@@ -10,12 +10,13 @@ if (isset($_SESSION["usuario_id"])) {
 
 $mensaje = "";
 
-// PROCESO LOGIN
+// Procesar login
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $telefono = trim($_POST["telefono"]);
     $password = trim($_POST["password"]);
 
+    // Buscar usuario
     $sql = $conn->prepare("SELECT id, password FROM usuarios WHERE telefono = ?");
     $sql->bind_param("s", $telefono);
     $sql->execute();
@@ -23,18 +24,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($res->num_rows === 1) {
 
-        $u = $res->fetch_assoc();
+        $user = $res->fetch_assoc();
 
-        if (password_verify($password, $u["password"])) {
-            $_SESSION["usuario_id"] = $u["id"];
+        // Comprobar contraseña con HASH
+        if (password_verify($password, $user["password"])) {
+
+            $_SESSION["usuario_id"] = $user["id"];
             header("Location: panel_usuario.php");
             exit;
+
         } else {
-            $mensaje = "❌ Contraseña incorrecta";
+            $mensaje = "❌ Contraseña incorrecta.";
         }
 
     } else {
-        $mensaje = "❌ No existe una cuenta con ese teléfono";
+        $mensaje = "❌ No existe una cuenta con ese teléfono.";
     }
 }
 ?>
@@ -56,7 +60,6 @@ body {
     height: 100vh;
 }
 
-/* Caja */
 .login-box {
     width: 330px;
     background: white;
@@ -66,7 +69,6 @@ body {
     text-align: center;
 }
 
-/* Icono */
 .icon {
     font-size: 60px;
     margin-bottom: 10px;
@@ -79,7 +81,6 @@ h2 {
     color: #2c3e50;
 }
 
-/* Inputs */
 .input {
     width: 100%;
     padding: 14px;
@@ -89,34 +90,30 @@ h2 {
     font-size: 15px;
 }
 
-/* Botón */
 .btn {
     width: 100%;
     padding: 14px;
-    border: none;
     border-radius: 12px;
     background: #3498db;
     color: white;
-    font-size: 16px;
+    border: none;
     cursor: pointer;
-    margin-top: 5px;
+    font-size: 16px;
 }
 
 .btn:hover {
     background: #2980b9;
 }
 
-/* Error */
 .error {
     background: #e74c3c;
     color: white;
     padding: 12px;
-    border-radius: 10px;
+    border-radius: 12px;
     margin-bottom: 15px;
     font-size: 14px;
 }
 
-/* Enlace registro */
 .register-link {
     margin-top: 12px;
     font-size: 14px;
@@ -126,7 +123,6 @@ h2 {
     color: #3498db;
     text-decoration: none;
 }
-
 .register-link a:hover {
     text-decoration: underline;
 }
@@ -150,7 +146,7 @@ h2 {
     </form>
 
     <div class="register-link">
-        ¿No tienes cuenta? <a href="register.php">Regístrate</a>
+        ¿No tienes cuenta? <a href="register.php">Crear cuenta</a>
     </div>
 </div>
 
