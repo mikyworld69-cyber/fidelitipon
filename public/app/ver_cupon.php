@@ -8,151 +8,147 @@ if (!isset($_SESSION["usuario_id"])) {
 }
 
 $user_id = $_SESSION["usuario_id"];
-$cup_id = intval($_GET["id"]);
+
+if (!isset($_GET["id"])) {
+    die("Cupón no especificado.");
+}
+
+$cupon_id = intval($_GET["id"]);
 
 // Obtener cupón
 $sql = $conn->prepare("
-    SELECT c.*, com.nombre AS comercio_nombre
+    SELECT c.*, com.nombre AS comercio_nombre 
     FROM cupones c
-    LEFT JOIN comercios com ON com.id = c.comercio_id
+    LEFT JOIN comercios com ON c.comercio_id = com.id
     WHERE c.id = ? AND c.usuario_id = ?
+    LIMIT 1
 ");
-$sql->bind_param("ii", $cup_id, $user_id);
+$sql->bind_param("ii", $cupon_id, $user_id);
 $sql->execute();
-$res = $sql->get_result();
+$cupon = $sql->get_result()->fetch_assoc();
 
-if ($res->num_rows == 0) {
-    echo "Cupón no encontrado.";
-    exit;
+if (!$cupon) {
+    die("Cupón no encontrado.");
 }
 
-$c = $res->fetch_assoc();
-
 // Determinar estado visual
-$badgeClass = "badge-activo";
-if ($c["estado"] === "usado") $badgeClass = "badge-usado";
-if ($c["estado"] === "caducado") $badgeClass = "badge-caducado";
+$estado = $cupon["estado"];
+$badge = "badge-activo";
+if ($estado === "usado") $badge = "badge-usado";
+if ($estado === "caducado") $badge = "badge-caducado";
 
-// Generar URL del QR
-$qr_url = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=" . urlencode($c["codigo"]);
+// Detectar caducidad automáticamente
+$hoy = date("Y-m-d");
+if ($cupon["fecha_caducidad"] < $hoy && $estado === "activo") {
+    // marcar caducado en BD
+    $upd = $conn->prepare("UPDATE cupones SET estado='caducado' WHERE id=?");
+    $upd->bind_param("i", $cupon_id);
+    $upd->execute();
+    $estado = "caducado";
+    $badge = "badge-caducado";
+}
+
+// URL QR → apunta al validador
+$qrURL = "https://" . $_SERVER['HTTP_HOST'] . "/validar_cupon.php?id=" . $cupon_id;
+
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Mi Cupón | Fidelitipon</title>
-
-<link rel="stylesheet" href="/public/app/app.css">
+<title>Ver Cupón | Fidelitipon</title>
+<link rel="stylesheet" href="/app/app.css">
 
 <style>
-.qr-container {
-    text-align: center;
-    margin-top: 20px;
-}
-
-.qr-container img {
-    width: 260px;
-    height: 260px;
-    border-radius: 18px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.cupon-box {
-    padding: 22px;
-    background: white;
-    border-radius: 18px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.10);
-    margin-bottom: 20px;
-}
-
-.share-btn {
-    width: 100%;
-    padding: 14px;
-    background: #1abc9c;
+.header {
+    background: #3498db;
     color: white;
-    border-radius: 12px;
-    font-size: 17px;
-    border: none;
-    cursor: pointer;
-    margin-top: 20px;
+    padding: 16px;
+    text-align: center;
+    font-size: 20px;
+    font-weight: bold;
 }
 
-.share-btn:hover {
-    background: #16a085;
+.card {
+    padding: 18px;
+    background: white;
+    margin: 20px;
+    border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
+
+.qr-box {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.qr-box img {
+    width: 220px;
+    height: 220px;
+}
+
+.btn-volver {
+    display: block;
+    margin: 25px auto;
+    width: 90%;
+    text-align: center;
+    padding: 12px;
+    border-radius: 12px;
+    background: #34495e;
+    color: white;
+    text-decoration: none;
+}
+
+.badge {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    color: white;
+}
+
+.badge-activo { background:#27ae60; }
+.badge-usado { background:#7f8c8d; }
+.badge-caducado { background:#c0392b; }
 </style>
 
 </head>
 <body>
 
-<div class="app-header">
-    Detalle del Cupón
-</div>
+<div class="header">Cupón</div>
 
-<div class="container">
+<div class="card">
 
-    <!-- Caja Principal -->
-    <div class="cupon-box">
+    <h2><?= htmlspecialchars($cupon["titulo"]) ?></h2>
+    <p style="color:#555;"><?= htmlspecialchars($cupon["descripcion"]) ?></p>
 
-        <h2 style="margin-bottom:10px;">
-            <?= htmlspecialchars($c["titulo"]) ?>
-        </h2>
+    <p><strong>Comercio:</strong> <?= htmlspecialchars($cupon["comercio_nombre"] ?: "—") ?></p>
 
-        <span class="badge <?= $badgeClass ?>">
-            <?= strtoupper($c["estado"]) ?>
+    <p><strong>Código:</strong> <?= htmlspecialchars($cupon["codigo"]) ?></p>
+
+    <p><strong>Caduca:</strong> <?= date("d/m/Y", strtotime($cupon["fecha_caducidad"])) ?></p>
+
+    <p>
+        <strong>Estado:</strong>
+        <span class="badge <?= $badge ?>">
+            <?= strtoupper($estado) ?>
         </span>
+    </p>
 
-        <p style="margin-top:15px; color:#555;">
-            <?= nl2br(htmlspecialchars($c["descripcion"])) ?>
-        </p>
-
-        <?php if ($c["comercio_nombre"]): ?>
-        <p style="margin-top:10px; font-size:15px; color:#2c3e50;">
-            <strong>Comercio:</strong> <?= htmlspecialchars($c["comercio_nombre"]) ?>
-        </p>
-        <?php endif; ?>
-
-        <p style="margin-top:10px; color:#7f8c8d;">
-            <strong>Caduca el:</strong> <?= date("d/m/Y", strtotime($c["fecha_caducidad"])) ?>
-        </p>
-
-    </div>
-
-    <!-- QR -->
-    <div class="qr-container">
-        <img src="<?= $qr_url ?>" alt="QR del cupón">
-        <p style="margin-top:10px; color:#555;">Muestra este código en el comercio</p>
-    </div>
-
-    <!-- Botón Compartir -->
-    <button class="share-btn" onclick="shareCupon()">
-        📤 Compartir cupón
-    </button>
-
-    <div style="height:70px;"></div>
+    <?php if ($estado === "activo"): ?>
+        <div class="qr-box">
+            <h3>Mostrar al comercio</h3>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=<?= urlencode($qrURL) ?>" alt="QR">
+            <p style="margin-top:10px;">El comercio escaneará este código para validar el cupón.</p>
+        </div>
+    <?php elseif ($estado === "usado"): ?>
+        <p style="color:#7f8c8d; font-weight:bold; margin-top:15px;">✔ Este cupón ya fue usado.</p>
+    <?php else: ?>
+        <p style="color:#c0392b; font-weight:bold; margin-top:15px;">⚠ Cupón caducado.</p>
+    <?php endif; ?>
 
 </div>
 
-<!-- Navegación inferior -->
-<div class="bottom-nav">
-    <a href="panel_usuario.php">🏠 Inicio</a>
-    <a href="perfil.php">👤 Perfil</a>
-    <a href="../logout.php">🚪 Salir</a>
-</div>
-
-<script>
-function shareCupon() {
-    if (navigator.share) {
-        navigator.share({
-            title: "Cupón Fidelitipon",
-            text: "Aquí tienes mi cupón de <?= htmlspecialchars($c["titulo"]) ?>.",
-            url: window.location.href
-        });
-    } else {
-        alert("Tu dispositivo no permite compartir desde la app.");
-    }
-}
-</script>
+<a href="panel_usuario.php" class="btn-volver">⬅ Volver</a>
 
 </body>
 </html>
