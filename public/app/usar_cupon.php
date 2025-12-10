@@ -1,6 +1,7 @@
 <?php
 session_start();
-require_once __DIR__ . "/../../config/db.php";
+require_once __DIR__ . '/../../config/db.php';
+include __DIR__ . '/../includes/head_app.php';
 
 if (!isset($_SESSION["usuario_id"])) {
     header("Location: login.php");
@@ -8,59 +9,105 @@ if (!isset($_SESSION["usuario_id"])) {
 }
 
 $user_id = $_SESSION["usuario_id"];
-
-// Validar cupón recibido
 if (!isset($_GET["id"])) {
     header("Location: panel_usuario.php");
     exit;
 }
 
-$cupon_id = intval($_GET["id"]);
+$cup_id = intval($_GET["id"]);
 
-// Buscar cupón
+// 1. Verificar que pertenece al usuario
 $sql = $conn->prepare("
-    SELECT id, estado, fecha_caducidad
-    FROM cupones
+    SELECT id, titulo, estado 
+    FROM cupones 
     WHERE id = ? AND usuario_id = ?
-    LIMIT 1
 ");
-$sql->bind_param("i", $cupon_id, $user_id);
+$sql->bind_param("ii", $cup_id, $user_id);
 $sql->execute();
-$res = $sql->get_result();
+$cup = $sql->get_result()->fetch_assoc();
 
-if ($res->num_rows === 0) {
-    header("Location: panel_usuario.php?msg=notfound");
-    exit;
+if (!$cup) {
+    die("Cupón no encontrado o no te pertenece.");
 }
 
-$cupon = $res->fetch_assoc();
-
-// Validaciones
-if ($cupon["estado"] !== "activo") {
-    header("Location: ver_cupon.php?id=$cupon_id&msg=noactivo");
-    exit;
+if ($cup["estado"] !== "activo") {
+    die("Este cupón ya no está disponible para usarse.");
 }
 
-// Ver si está caducado
-$hoy = date("Y-m-d");
-if ($cupon["fecha_caducidad"] < $hoy) {
-    // Marcar caducado si no lo está
-    $up = $conn->prepare("UPDATE cupones SET estado='caducado' WHERE id=?");
-    $up->bind_param("i", $cupon_id);
-    $up->execute();
-
-    header("Location: ver_cupon.php?id=$cupon_id&msg=caducado");
-    exit;
-}
-
-// Marcar como usado
-$upd = $conn->prepare("
+// 2. Actualizar estado a usado
+$update = $conn->prepare("
     UPDATE cupones 
     SET estado = 'usado', fecha_uso = NOW()
     WHERE id = ?
 ");
-$upd->bind_param("i", $cupon_id);
-$upd->execute();
+$update->bind_param("i", $cup_id);
+$update->execute();
 
-header("Location: ver_cupon.php?id=$cupon_id&msg=ok");
-exit;
+?>
+<style>
+.success-box {
+    background: white;
+    margin: 30px;
+    padding: 25px;
+    border-radius: 16px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+.success-icon {
+    font-size: 70px;
+    color: #27ae60;
+    margin-bottom: 15px;
+}
+
+.success-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.success-text {
+    font-size: 16px;
+    color: #444;
+    margin-bottom: 20px;
+}
+
+.btn-back {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    background: #3498db;
+    color: white;
+    border-radius: 12px;
+    font-size: 18px;
+    text-decoration: none;
+}
+
+.btn-back:hover {
+    background: #2980b9;
+}
+</style>
+
+<div class="app-header">Cupón Usado</div>
+
+<div class="success-box">
+
+    <div class="success-icon">✅</div>
+
+    <div class="success-title">Cupón Canjeado</div>
+
+    <div class="success-text">
+        Has usado el cupón:<br>
+        <strong><?= htmlspecialchars($cup["titulo"]) ?></strong><br>
+        ¡Gracias por utilizar Fidelitipon!
+    </div>
+
+    <a href="panel_usuario.php" class="btn-back">Volver a mis cupones</a>
+
+</div>
+
+<div class="bottom-nav">
+    <a href="panel_usuario.php" class="active">🏠 Inicio</a>
+    <a href="perfil.php">👤 Perfil</a>
+    <a href="../logout.php">🚪 Salir</a>
+</div>
