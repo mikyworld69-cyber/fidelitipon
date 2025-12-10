@@ -14,10 +14,6 @@ $mensaje = "";
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $email = trim($_POST["email"]);
-$email = strtolower($email);
-var_dump("EMAIL PROCESADO:", $email);
-exit;
-
     $password = trim($_POST["password"]);
 
     // Consulta por email
@@ -31,6 +27,10 @@ exit;
     $sql->bind_param("s", $email);
     $sql->execute();
     $res = $sql->get_result();
+
+    var_dump("FILAS ENCONTRADAS:", $res->num_rows);
+exit;
+
 
     if ($res->num_rows === 1) {
 
