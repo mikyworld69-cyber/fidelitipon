@@ -220,6 +220,7 @@ document.getElementById("btnInstalar").addEventListener("click", async () => {
 });
 </script>
 
+    <script src="/push/notificaciones.js"></script>
 
 </body>
 </html>
