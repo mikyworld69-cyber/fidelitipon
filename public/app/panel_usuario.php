@@ -2,7 +2,6 @@
 session_start();
 require_once __DIR__ . "/../../config/db.php";
 
-// Si no está logueado → login
 if (!isset($_SESSION["usuario_id"])) {
     header("Location: login.php");
     exit;
@@ -10,15 +9,15 @@ if (!isset($_SESSION["usuario_id"])) {
 
 $user_id = $_SESSION["usuario_id"];
 
-// Obtener datos usuario
+// Obtener usuario
 $sqlUser = $conn->prepare("SELECT nombre, telefono FROM usuarios WHERE id = ?");
 $sqlUser->bind_param("i", $user_id);
 $sqlUser->execute();
 $user = $sqlUser->get_result()->fetch_assoc();
 
-// Obtener cupones del usuario
+// Obtener cupones SIN columna 'codigo'
 $sql = $conn->prepare("
-    SELECT id, codigo, titulo, descripcion, estado, fecha_caducidad
+    SELECT id, titulo, descripcion, estado, fecha_caducidad
     FROM cupones
     WHERE usuario_id = ?
     ORDER BY fecha_creacion DESC
@@ -55,25 +54,22 @@ $cupones = $sql->get_result();
     box-shadow: 0 3px 10px rgba(0,0,0,0.07);
     cursor: pointer;
 }
-
 .cupon-card:hover {
     background: #f3f7fa;
     transform: scale(1.01);
 }
 
-/* Badges */
 .badge {
     padding: 6px 12px;
-    border-radius: 10px;
+    border-radius: 8px;
+    font-weight: bold;
     color: white;
-    font-size: 14px;
 }
 
-.badge-activo { background: #27ae60; }
-.badge-usado { background: #7f8c8d; }
-.badge-caducado { background: #c0392b; }
+.badge-activo { background:#27ae60; }
+.badge-usado { background:#7f8c8d; }
+.badge-caducado { background:#c0392b; }
 
-/* Navegación inferior */
 .bottom-nav {
     position: fixed;
     bottom: 0; left: 0;
@@ -105,92 +101,57 @@ $cupones = $sql->get_result();
 
 <div class="container">
 
-    <!-- Info usuario -->
     <div class="card" style="margin-bottom:20px;">
         <h3>Hola, <?= htmlspecialchars($user["nombre"] ?: "Usuario") ?></h3>
         <p style="color:#7f8c8d;">Tel: <?= htmlspecialchars($user["telefono"]) ?></p>
     </div>
 
-    <!-- Cupones -->
-    <h2 style="margin-bottom:12px;">Cupones Disponibles</h2>
+    <h2>Cupones Disponibles</h2>
 
     <?php if ($cupones->num_rows == 0): ?>
         <div class="card" style="text-align:center;">
-            <p>No tienes cupones por ahora.</p>
+            No tienes cupones todavía.
         </div>
     <?php endif; ?>
 
-    <?php while ($c = $cupones->fetch_assoc()): 
-        $badgeClass = "badge-activo";
-        if ($c["estado"] === "usado") $badgeClass = "badge-usado";
-        if ($c["estado"] === "caducado") $badgeClass = "badge-caducado";
-    ?>
+    <?php while ($c = $cupones->fetch_assoc()): ?>
 
-    <div class="cupon-card" onclick="location.href='ver_cupon.php?id=<?= $c['id'] ?>'">
-        <div class="cupon-title" style="font-weight:bold; font-size:18px;">
-            <?= htmlspecialchars($c["titulo"]) ?>
+        <?php
+        $badge = "badge-activo";
+        if ($c["estado"] === "usado") $badge = "badge-usado";
+        if ($c["estado"] === "caducado") $badge = "badge-caducado";
+        ?>
+
+        <div class="cupon-card" onclick="location.href='ver_cupon.php?id=<?= $c['id'] ?>'">
+            <div style="font-size:18px; font-weight:bold;">
+                <?= htmlspecialchars($c["titulo"]) ?>
+            </div>
+
+            <div style="margin-top:6px; color:#666;">
+                <?= htmlspecialchars($c["descripcion"]) ?>
+            </div>
+
+            <div style="margin-top:10px; color:#888;">
+                Caduca: <?= date("d/m/Y", strtotime($c["fecha_caducidad"])) ?>
+            </div>
+
+            <span class="badge <?= $badge ?>">
+                <?= strtoupper($c["estado"]) ?>
+            </span>
         </div>
-
-        <div class="cupon-desc" style="color:#666;">
-            <?= htmlspecialchars($c["descripcion"]) ?>
-        </div>
-
-        <div class="caduca" style="margin-top:10px; color:#7f8c8d;">
-            Caduca: <?= date("d/m/Y", strtotime($c["fecha_caducidad"])) ?>
-        </div>
-
-        <span class="badge <?= $badgeClass ?>">
-            <?= strtoupper($c["estado"]) ?>
-        </span>
-    </div>
 
     <?php endwhile; ?>
 
-    <div style="height:80px;"></div> <!-- espacio para menú -->
+    <div style="height:80px;"></div>
 </div>
 
-<!-- Barra inferior -->
 <div class="bottom-nav">
     <a href="panel_usuario.php" class="active">🏠 Inicio</a>
     <a href="perfil.php">👤 Perfil</a>
     <a href="/logout.php">🚪 Salir</a>
 </div>
 
-<!-- Registro del Service Worker -->
-<script>
-if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/push/sw.js")
-        .then(reg => console.log("SW registrado", reg))
-        .catch(err => console.error("Error SW:", err));
-}
-</script>
-
-<!-- Suscripción Push -->
 <script src="/push/notificaciones.js"></script>
-
-<!-- Botón instalar PWA -->
-<button id="btnInstalar" style="display:none; position:fixed; bottom:90px; right:20px;
-background:#3498db; color:white; padding:12px 18px; border:none; border-radius:12px; font-size:15px;">
-📲 Instalar App
-</button>
-
-<script>
-let deferredPrompt;
-
-window.addEventListener("beforeinstallprompt", e => {
-    e.preventDefault();
-    deferredPrompt = e;
-    document.getElementById("btnInstalar").style.display = "block";
-});
-
-document.getElementById("btnInstalar").addEventListener("click", async () => {
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const outcome = await deferredPrompt.userChoice;
-        deferredPrompt = null;
-    }
-});
-</script>
 
 </body>
 </html>
