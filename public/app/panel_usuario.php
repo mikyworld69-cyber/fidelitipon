@@ -9,7 +9,7 @@ if (!isset($_SESSION["usuario_id"])) {
 
 $user_id = $_SESSION["usuario_id"];
 
-// Obtener usuario
+// Obtener datos del usuario
 $sqlUser = $conn->prepare("SELECT nombre, telefono FROM usuarios WHERE id = ?");
 $sqlUser->bind_param("i", $user_id);
 $sqlUser->execute();
@@ -32,80 +32,18 @@ $cupones = $sql->get_result();
 <meta charset="UTF-8">
 <title>Mis Cupones | Fidelitipon</title>
 
+<!-- Estilos de la App -->
 <link rel="stylesheet" href="/public/app/app.css">
 
+<!-- Cargar badges del admin -->
+<link rel="stylesheet" href="/public/admin/admin.css">
+
 <style>
-/* Barra inferior tipo app */
-.bottom-nav {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    background: white;
-    border-top: 1px solid #ddd;
-    display: flex;
-    justify-content: space-around;
-    padding: 12px 0;
-    box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
-}
-
-.bottom-nav a {
-    text-align: center;
-    color: #2c3e50;
-    font-size: 15px;
-    text-decoration: none;
-}
-
-.bottom-nav a.active {
-    color: #3498db;
-    font-weight: bold;
-}
-
-.cupon-card {
-    padding: 18px;
-    border-radius: 14px;
-    background: white;
-    margin-bottom: 15px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.07);
-    cursor: pointer;
-}
-
-.cupon-card:hover {
-    background: #f9f9f9;
-    transform: scale(1.01);
-    transition: 0.15s;
-}
-
-.cupon-title {
-    font-size: 18px;
-    font-weight: bold;
-    margin-bottom: 8px;
-}
-
-.cupon-desc {
-    font-size: 14px;
-    color: #555;
-}
-
-.caduca {
-    margin-top: 10px;
-    font-size: 13px;
-    color: #7f8c8d;
-}
-
-/* Header */
-.app-header {
-    background: #3498db;
-    padding: 18px;
-    color: white;
-    text-align: center;
-    font-size: 22px;
-    font-weight: bold;
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
+.container {
+    padding: 20px;
+    margin-bottom: 80px;
 }
 </style>
-
 </head>
 <body>
 
@@ -121,8 +59,7 @@ $cupones = $sql->get_result();
         <p style="color:#7f8c8d;">Tel: <?= htmlspecialchars($user["telefono"]) ?></p>
     </div>
 
-    <!-- Lista de cupones -->
-    <h2 style="margin-bottom:10px;">Cupones Disponibles</h2>
+    <h2 style="margin:20px 0 10px 0;">Cupones Disponibles</h2>
 
     <?php if ($cupones->num_rows == 0): ?>
         <div class="card" style="text-align:center;">
@@ -158,8 +95,6 @@ $cupones = $sql->get_result();
 
     <?php endwhile; ?>
 
-    <div style="height:70px;"></div> <!-- espacio para navbar -->
-
 </div>
 
 <!-- Navegación inferior -->
@@ -169,33 +104,11 @@ $cupones = $sql->get_result();
     <a href="../logout.php">🚪 Salir</a>
 </div>
 
-<!-- Suscripción Push -->
-<script>
-if ("serviceWorker" in navigator && "PushManager" in window) {
+<!-- Registrar Notificaciones Push -->
+<script src="/push/notificaciones.js"></script>
 
-    navigator.serviceWorker.register("../push/sw.js")
-        .then(swReg => {
-            return swReg.pushManager.getSubscription()
-                .then(sub => {
-                    if (sub) return sub;
-
-                    return swReg.pushManager.subscribe({
-                        userVisibleOnly: true,
-                        applicationServerKey: "BA4M737w3LmyAiXYmDwOihcwEflN-o9Axjz7wBBlo7ICzjhURi6EoqRpOA9phRgpaKTOuKzNlNCl2n8y2M632UI"
-                    });
-                })
-                .then(sub => {
-                    fetch("../push/push_subscribe.php", {
-                        method: "POST",
-                        body: JSON.stringify(sub),
-                        headers: { "Content-Type": "application/json" }
-                    });
-                });
-        });
-}
-</script>
-
-<button class="btn" id="btnInstalar" style="margin-top:15px;">
+<!-- Botón PWA -->
+<button class="btn" id="btnInstalar" style="margin:20px; display:none;">
     📲 Instalar App
 </button>
 
@@ -211,16 +124,11 @@ window.addEventListener("beforeinstallprompt", e => {
 document.getElementById("btnInstalar").addEventListener("click", async () => {
     if (deferredPrompt) {
         deferredPrompt.prompt();
-        const outcome = await deferredPrompt.userChoice;
-        if (outcome.outcome === "accepted") {
-            console.log("PWA instalada");
-        }
+        await deferredPrompt.userChoice;
         deferredPrompt = null;
     }
 });
 </script>
-
-    <script src="/push/notificaciones.js"></script>
 
 </body>
 </html>
