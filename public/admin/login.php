@@ -28,25 +28,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $sql->execute();
     $res = $sql->get_result();
 
-    $row = $res->fetch_assoc();
-var_dump("ROW:", $row);
-exit;
-
-
     if ($res->num_rows === 1) {
 
         $admin = $res->fetch_assoc(); // SOLO AQUÍ SE LEE
 
         // Verificar contraseña
-        if (password_verify($password, $admin["password"])) {
+        var_dump("PASSWORD ENVIADA:", $password);
+var_dump("HASH BD:", $admin["password"]);
+var_dump("VERIFY:", password_verify($password, $admin["password"]));
+exit;
 
-            $_SESSION["admin_id"] = $admin["id"];
-            header("Location: dashboard.php");
-            exit;
-
-        } else {
-            $mensaje = "❌ Contraseña incorrecta.";
-        }
 
     } else {
         $mensaje = "❌ El correo no existe.";
