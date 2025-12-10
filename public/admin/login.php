@@ -17,6 +17,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $password = trim($_POST["password"]);
 
     // Consulta por email
+    var_dump($_POST);
+exit;
+
     $sql = $conn->prepare("
         SELECT id, usuario, email, password 
         FROM admin 
