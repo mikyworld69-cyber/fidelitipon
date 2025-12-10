@@ -27,14 +27,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $mensaje = "❌ Este teléfono ya está registrado.";
     } else {
 
-        // 2. Crear usuario
-        $hash = password_hash($password, PASSWORD_DEFAULT);
+        // Crear hash de la contraseña
+        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
+        // 2. Insertar usuario en columnas correctas
         $insert = $conn->prepare("
             INSERT INTO usuarios (telefono, password, nombre, fecha_registro)
             VALUES (?, ?, ?, NOW())
         ");
-        $insert->bind_param("sss", $telefono, $hash, $nombre);
+        $insert->bind_param("sss", $telefono, $passwordHash, $nombre);
 
         if ($insert->execute()) {
 
@@ -45,7 +46,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             exit;
 
         } else {
-            $mensaje = "❌ Error al crear la cuenta.";
+            $mensaje = "❌ Error al crear la cuenta: " . $conn->error;
         }
     }
 }
