@@ -1,33 +1,51 @@
 <?php
-require_once __DIR__ . "/../../config/db.php";
+require_once __DIR__ . '/../../config/db.php';
 
-$token = $_GET["token"] ?? "";
-$mensaje = "";
+if (!isset($_GET["token"])) {
+    die("Token no válido.");
+}
 
-$sql = $conn->prepare("SELECT id FROM admin WHERE reset_token = ? AND reset_expira > NOW()");
+$token = $_GET["token"];
+
+$sql = $conn->prepare("SELECT id, token_expira FROM admin WHERE token_reset = ?");
 $sql->bind_param("s", $token);
 $sql->execute();
 $res = $sql->get_result();
 
-if ($res->num_rows !== 1) {
-    die("Enlace inválido o expirado.");
+if ($res->num_rows === 0) {
+    die("Token inválido o expirado.");
 }
 
 $admin = $res->fetch_assoc();
 
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-    $pass = password_hash($_POST["password"], PASSWORD_DEFAULT);
-
-    $upd = $conn->prepare("UPDATE admin SET password = ?, reset_token = NULL, reset_expira = NULL WHERE id = ?");
-    $upd->bind_param("si", $pass, $admin["id"]);
-    $upd->execute();
-
-    echo "Contraseña actualizada. Ya puedes iniciar sesión.";
-    exit;
+// comprobar fecha
+if (strtotime($admin["token_expira"]) < time()) {
+    die("El enlace ha expirado. Solicita uno nuevo.");
 }
+
+require_once __DIR__ . '/../head_universal.php';
 ?>
 
-<form method="POST">
-    <input type="password" name="password" placeholder="Nueva contraseña" required>
-    <button class="btn">Actualizar</button>
-</form>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Restablecer contraseña</title>
+</head>
+<body>
+
+<div class="contenedor-form">
+    <h2>Restablecer contraseña</h2>
+
+    <form action="procesar_reset.php" method="POST">
+        <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
+
+        <label>Nueva contraseña</label>
+        <input type="password" name="password" required minlength="5">
+
+        <button class="btn-primario" type="submit">Guardar</button>
+    </form>
+</div>
+
+</body>
+</html>
