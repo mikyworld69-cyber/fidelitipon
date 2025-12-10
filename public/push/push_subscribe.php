@@ -1,20 +1,38 @@
 <?php
-session_start();
-require_once __DIR__ . "/../../config/db.php";
+require_once __DIR__ . '/../../config/db.php';
 
-$data = json_decode(file_get_contents("php://input"), true);
+header("Content-Type: application/json");
 
-if (!isset($_SESSION["usuario_id"])) exit;
+// Leer datos enviados desde JS
+$body = file_get_contents("php://input");
+
+if (!$body) {
+    echo json_encode(["error" => "No se recibió suscripción"]);
+    exit;
+}
+
+$data = json_decode($body, true);
+
+// Validación
+if (!isset($data["endpoint"])) {
+    echo json_encode(["error" => "Datos incompletos"]);
+    exit;
+}
 
 $endpoint = $data["endpoint"];
-$auth     = $data["keys"]["auth"];
-$p256dh   = $data["keys"]["p256dh"];
-$user_id  = $_SESSION["usuario_id"];
+$p256dh = $data["keys"]["p256dh"] ?? "";
+$auth   = $data["keys"]["auth"] ?? "";
 
-$sql = $conn->prepare("
-    INSERT INTO suscripciones_push (usuario_id, endpoint, keys_auth, keys_p256dh)
-    VALUES (?, ?, ?, ?)
-    ON DUPLICATE KEY UPDATE endpoint = VALUES(endpoint)
+// GUARDAR / ACTUALIZAR suscripción
+$stmt = $conn->prepare("
+    INSERT INTO suscripciones_push (endpoint, p256dh, auth)
+    VALUES (?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+        p256dh = VALUES(p256dh),
+        auth   = VALUES(auth)
 ");
-$sql->bind_param("isss", $user_id, $endpoint, $auth, $p256dh);
-$sql->execute();
+
+$stmt->bind_param("sss", $endpoint, $p256dh, $auth);
+$stmt->execute();
+
+echo json_encode(["success" => true]);
