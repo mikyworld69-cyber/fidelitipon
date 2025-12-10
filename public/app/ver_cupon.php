@@ -1,196 +1,118 @@
 <?php
 session_start();
-require_once __DIR__ . "/../../config/db.php";
+require_once __DIR__ . '/../../config/db.php';
+include __DIR__ . '/../includes/head_app.php';
 
-// Si no está logueado → fuera
 if (!isset($_SESSION["usuario_id"])) {
     header("Location: login.php");
     exit;
 }
 
 $user_id = $_SESSION["usuario_id"];
-
-// Validar cupón recibido
 if (!isset($_GET["id"])) {
     header("Location: panel_usuario.php");
     exit;
 }
 
-$cupon_id = intval($_GET["id"]);
+$cup_id = intval($_GET["id"]);
 
-// Obtener cupón del usuario
+// Verificar que el cupón pertenece al usuario
 $sql = $conn->prepare("
-    SELECT id, titulo, descripcion, estado, fecha_caducidad
-    FROM cupones
+    SELECT id, titulo, descripcion, estado, fecha_caducidad 
+    FROM cupones 
     WHERE id = ? AND usuario_id = ?
-    LIMIT 1
 ");
-$sql->bind_param("i", $cupon_id, $user_id);
+$sql->bind_param("ii", $cup_id, $user_id);
 $sql->execute();
-$data = $sql->get_result();
+$cupon = $sql->get_result()->fetch_assoc();
 
-if ($data->num_rows === 0) {
-    echo "Cupón no encontrado.";
-    exit;
+if (!$cupon) {
+    die("Cupón no encontrado o no pertenece al usuario.");
 }
 
-$cupon = $data->fetch_assoc();
+$estado = strtoupper($cupon["estado"]);
 
-// Badge
 $badgeClass = "badge-activo";
-if ($cupon["estado"] === "usado") $badgeClass = "badge-usado";
-if ($cupon["estado"] === "caducado") $badgeClass = "badge-caducado";
+if ($estado === "USADO") $badgeClass = "badge-usado";
+if ($estado === "CADUCADO") $badgeClass = "badge-caducado";
 
-// QR (opcional)
-$qrURL = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" . urlencode("CUPON-" . $cupon["id"]);
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title><?= htmlspecialchars($cupon["titulo"]) ?> | Fidelitipon</title>
-
-<!-- HEAD UNIVERSAL -->
-<link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#3498db">
 <link rel="stylesheet" href="/app/app.css">
 
 <style>
-.cupon-container {
-    padding: 20px;
-}
-
 .cupon-box {
     background: white;
+    margin: 20px;
     padding: 22px;
-    margin-bottom: 20px;
-    border-radius: 14px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.1);
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.10);
 }
 
 .cupon-title {
     font-size: 22px;
     font-weight: bold;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
-
-.badge {
-    padding: 6px 12px;
-    border-radius: 10px;
-    font-weight: bold;
-    color: white;
-}
-
-.badge-activo { background: #27ae60; }
-.badge-usado { background: #7f8c8d; }
-.badge-caducado { background: #c0392b; }
 
 .cupon-desc {
     font-size: 15px;
+    color: #555;
     margin-bottom: 15px;
 }
 
-.qr-box {
-    text-align: center;
-    margin-top: 20px;
+.info-line {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
 }
 
-.btn-usar {
-    display: block;
+.btn-use {
     width: 100%;
-    padding: 14px;
-    background: #3498db;
+    padding: 15px;
+    background: #1abc9c;
     color: white;
     border-radius: 12px;
+    font-size: 18px;
     text-align: center;
-    margin-top: 20px;
-    font-size: 17px;
-    text-decoration: none;
+    display: block;
+    border: none;
 }
 
-.btn-usar:hover {
-    background: #2980b9;
+.btn-use:hover {
+    background: #16a085;
 }
 
-.bottom-nav a.active {
-    color: #3498db;
+.disabled-btn {
+    background: #7f8c8d !important;
 }
 </style>
 
-</head>
-<body>
+<div class="app-header">Cupón</div>
 
-<div class="app-header">
-    Cupón
-</div>
+<div class="cupon-box">
 
-    <?php if (isset($_GET["msg"])): ?>
-    <div class="card" style="background:#dff9fb; border-left:5px solid #22a6b3; margin:15px;">
-        <?php
-        switch($_GET["msg"]) {
-            case "ok":
-                echo "✔ Cupón marcado como usado correctamente.";
-                break;
-            case "caducado":
-                echo "⚠ Este cupón ya estaba caducado.";
-                break;
-            case "noactivo":
-                echo "⚠ Este cupón no está activo.";
-                break;
-            case "notfound":
-                echo "❌ Cupón no encontrado.";
-                break;
-        }
-        ?>
-    </div>
-<?php endif; ?>
+    <div class="cupon-title"><?= htmlspecialchars($cupon["titulo"]) ?></div>
 
+    <div class="cupon-desc"><?= nl2br(htmlspecialchars($cupon["descripcion"])) ?></div>
 
-<div class="cupon-container">
-
-    <div class="cupon-box">
-        <div class="cupon-title">
-            <?= htmlspecialchars($cupon["titulo"]) ?>
-        </div>
-
-        <span class="badge <?= $badgeClass ?>">
-            <?= strtoupper($cupon["estado"]) ?>
-        </span>
-
-        <p class="cupon-desc">
-            <?= htmlspecialchars($cupon["descripcion"]) ?>
-        </p>
-
-        <p style="color:#7f8c8d;">
-            Caduca el: <strong><?= date("d/m/Y", strtotime($cupon["fecha_caducidad"])) ?></strong>
-        </p>
+    <div class="info-line">
+        <strong>Caduca:</strong> <?= date("d/m/Y", strtotime($cupon["fecha_caducidad"])) ?>
     </div>
 
-    <div class="qr-box">
-        <h3>Mostrar en comercio</h3>
-        <img src="<?= $qrURL ?>" style="width:200px;">
-    </div>
+    <span class="badge <?= $badgeClass ?>"><?= $estado ?></span>
 
-    <?php if ($cupon["estado"] === "activo"): ?>
-        <a class="btn-usar" href="usar_cupon.php?id=<?= $cupon_id ?>">
-            ✔ Marcar como usado
-        </a>
+    <br><br>
+
+    <?php if ($estado === "ACTIVO"): ?>
+        <a href="usar_cupon.php?id=<?= $cup_id ?>" class="btn-use">Usar Cupón</a>
+    <?php else: ?>
+        <button class="btn-use disabled-btn" disabled>Cupón no disponible</button>
     <?php endif; ?>
 
 </div>
 
-<!-- Navegación inferior -->
 <div class="bottom-nav">
     <a href="panel_usuario.php" class="active">🏠 Inicio</a>
     <a href="perfil.php">👤 Perfil</a>
-    <a href="/logout.php">🚪 Salir</a>
+    <a href="../logout.php">🚪 Salir</a>
 </div>
-
-<script>
-if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw-pwa.js");
-}
-</script>
-
-</body>
-</html>
