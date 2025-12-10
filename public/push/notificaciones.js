@@ -4,7 +4,7 @@ const PUBLIC_VAPID = "BA4M737w3LmyAiXYmDwOihcwEflN-o9Axjz7wBBlo7ICzjhURi6EoqRpOA
 
 if ("serviceWorker" in navigator && "PushManager" in window) {
     
-    navigator.serviceWorker.register("/service-worker.js")
+    navigator.serviceWorker.register("/sw-pwa.js")
     .then(reg => {
         console.log("SW registrado:", reg);
 
