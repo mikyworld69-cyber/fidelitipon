@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-// Si ya está logueado → entra directamente
+// Si ya está logueado
 if (isset($_SESSION["admin_id"])) {
     header("Location: dashboard.php");
     exit;
@@ -10,25 +10,28 @@ if (isset($_SESSION["admin_id"])) {
 
 $mensaje = "";
 
-// PROCESO LOGIN
+// LOGIN
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $email = trim($_POST["email"]);
     $password = trim($_POST["password"]);
 
-    // Consulta correcta usando email
-    $sql = $conn->prepare("SELECT id, usuario, email, password FROM admin WHERE email = ?");
+    // Consulta por email
+    $sql = $conn->prepare("
+        SELECT id, usuario, email, password 
+        FROM admin 
+        WHERE email = ?
+        LIMIT 1
+    ");
     $sql->bind_param("s", $email);
     $sql->execute();
     $res = $sql->get_result();
 
-    // Depuración temporal
-    // var_dump($res->fetch_assoc()); exit;
-
     if ($res->num_rows === 1) {
 
-        $admin = $res->fetch_assoc();
+        $admin = $res->fetch_assoc(); // SOLO AQUÍ SE LEE
 
+        // Verificar contraseña
         if (password_verify($password, $admin["password"])) {
 
             $_SESSION["admin_id"] = $admin["id"];
@@ -38,12 +41,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         } else {
             $mensaje = "❌ Contraseña incorrecta.";
         }
+
     } else {
         $mensaje = "❌ El correo no existe.";
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -57,7 +60,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <h2>Acceso Admin</h2>
 
     <?php if ($mensaje): ?>
-        <div class="error"><?= $mensaje ?></div>
+    <div class="error"><?= $mensaje ?></div>
     <?php endif; ?>
 
     <form method="POST">
