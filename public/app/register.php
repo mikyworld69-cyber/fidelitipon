@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . "/../../config/db.php";
 
-// Si ya está logueado → entra directo
+// Si ya está logueado → redirigir
 if (isset($_SESSION["usuario_id"])) {
     header("Location: panel_usuario.php");
     exit;
@@ -10,43 +10,49 @@ if (isset($_SESSION["usuario_id"])) {
 
 $mensaje = "";
 
-// Procesar registro
+// Procesar formulario
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $telefono = trim($_POST["telefono"]);
     $password = trim($_POST["password"]);
     $nombre   = trim($_POST["nombre"]);
 
-    // 1. Verificar si el teléfono existe
-    $check = $conn->prepare("SELECT id FROM usuarios WHERE telefono = ?");
-    $check->bind_param("s", $telefono);
-    $check->execute();
-    $res = $check->get_result();
-
-    if ($res->num_rows > 0) {
-        $mensaje = "❌ Este teléfono ya está registrado.";
+    // Validación básica
+    if ($telefono === "" || $password === "") {
+        $mensaje = "❌ Todos los campos obligatorios deben estar llenos.";
     } else {
 
-        // Crear hash de la contraseña
-        $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+        // ¿Existe ya el teléfono?
+        $check = $conn->prepare("SELECT id FROM usuarios WHERE telefono = ?");
+        $check->bind_param("s", $telefono);
+        $check->execute();
+        $res = $check->get_result();
 
-        // 2. Insertar usuario en columnas correctas
-        $insert = $conn->prepare("
-            INSERT INTO usuarios (telefono, password, nombre, fecha_registro)
-            VALUES (?, ?, ?, NOW())
-        ");
-        $insert->bind_param("sss", $telefono, $passwordHash, $nombre);
-
-        if ($insert->execute()) {
-
-            // 3. Autologin
-            $_SESSION["usuario_id"] = $insert->insert_id;
-
-            header("Location: panel_usuario.php");
-            exit;
-
+        if ($res->num_rows > 0) {
+            $mensaje = "❌ Este teléfono ya está registrado.";
         } else {
-            $mensaje = "❌ Error al crear la cuenta: " . $conn->error;
+
+            // Guardar contraseña con hash
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+            // INSERT seguro: solo columnas que sabemos que existen
+            $insert = $conn->prepare("
+                INSERT INTO usuarios (telefono, password, nombre)
+                VALUES (?, ?, ?)
+            ");
+            $insert->bind_param("sss", $telefono, $passwordHash, $nombre);
+
+            if ($insert->execute()) {
+
+                // Autologin
+                $_SESSION["usuario_id"] = $insert->insert_id;
+
+                header("Location: panel_usuario.php");
+                exit;
+
+            } else {
+                $mensaje = "❌ Error al registrar usuario: " . $conn->error;
+            }
         }
     }
 }
