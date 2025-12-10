@@ -15,12 +15,12 @@ $sqlUser->bind_param("i", $user_id);
 $sqlUser->execute();
 $user = $sqlUser->get_result()->fetch_assoc();
 
-// Obtener cupones SIN columna 'codigo'
+// Obtener cupones (sin fecha_creacion)
 $sql = $conn->prepare("
     SELECT id, titulo, descripcion, estado, fecha_caducidad
     FROM cupones
     WHERE usuario_id = ?
-    ORDER BY fecha_creacion DESC
+    ORDER BY fecha_caducidad DESC
 ");
 $sql->bind_param("i", $user_id);
 $sql->execute();
