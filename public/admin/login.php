@@ -1,5 +1,4 @@
 <?php
-var_dump($admin);
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
@@ -30,7 +29,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($res->num_rows === 1) {
         $admin = $res->fetch_assoc();
-
+        var_dump($admin);
         if (password_verify($password, $admin["password"])) {
             $_SESSION["admin_id"] = $admin["id"];
             header("Location: dashboard.php");
