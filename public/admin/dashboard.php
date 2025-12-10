@@ -2,133 +2,120 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-
+// Verificar login
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
 }
 
-// ========================
-// MÉTRICAS DEL DASHBOARD
-// ========================
-
-// Total usuarios
-$total_usuarios = $conn->query("SELECT COUNT(*) AS t FROM usuarios")->fetch_assoc()["t"];
-
-// Total comercios
-$total_comercios = $conn->query("SELECT COUNT(*) AS t FROM comercios")->fetch_assoc()["t"];
-
-// Total cupones
-$total_cupones = $conn->query("SELECT COUNT(*) AS t FROM cupones")->fetch_assoc()["t"];
-
-// Activos
-$activos = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='activo'")->fetch_assoc()["t"];
-
-// Usados
-$usados = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='usado'")->fetch_assoc()["t"];
-
-// Caducados
-$caducados = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='caducado'")->fetch_assoc()["t"];
-
-// Validaciones totales
-$validaciones = $conn->query("SELECT COUNT(*) AS t FROM validaciones")->fetch_assoc()["t"];
+// ---------- CONSULTAS ----------
+$totUsuarios = $conn->query("SELECT COUNT(*) AS total FROM usuarios")->fetch_assoc()["total"];
+$totComercios = $conn->query("SELECT COUNT(*) AS total FROM comercios")->fetch_assoc()["total"];
+$totCupones = $conn->query("SELECT COUNT(*) AS total FROM cupones")->fetch_assoc()["total"];
+$cuponesPend = $conn->query("SELECT COUNT(*) AS total FROM cupones WHERE estado='pendiente'")->fetch_assoc()["total"];
+$cuponesCanj = $conn->query("SELECT COUNT(*) AS total FROM cupones WHERE estado='canjeado'")->fetch_assoc()["total"];
+$cuponesCad = $conn->query("SELECT COUNT(*) AS total FROM cupones WHERE estado='caducado'")->fetch_assoc()["total"];
+$totValidaciones = $conn->query("SELECT COUNT(*) AS total FROM validaciones")->fetch_assoc()["total"];
+$totNotificaciones = $conn->query("SELECT COUNT(*) AS total FROM notificaciones")->fetch_assoc()["total"];
 ?>
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Dashboard | Fidelitipon Admin</title>
-<link rel="stylesheet" href="admin.css">
+<title>Dashboard Admin | Fidelitipon</title>
 
 <style>
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 20px;
-    margin-top: 20px;
+body {
+    background: #f4f6f9;
+    font-family: Arial;
+    margin: 0;
 }
-
-.card-stat {
-    padding: 25px;
+header {
+    background: #3498db;
+    padding: 15px;
     color: white;
-    border-radius: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    font-size: 18px;
+    font-size: 22px;
 }
 
-.card-blue { background: #3498db; }
-.card-green { background: #1abc9c; }
-.card-orange { background: #e67e22; }
-.card-purple { background: #9b59b6; }
-.card-gray  { background: #7f8c8d; }
-.card-red   { background: #c0392b; }
+.container {
+    padding: 20px;
+}
 
-.card-stat span {
-    font-size: 34px;
+.card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.15);
+    margin-bottom: 20px;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit,minmax(220px,1fr));
+    gap: 20px;
+}
+
+.card h3 {
+    margin: 0 0 10px;
+    color: #3498db;
+}
+
+.value {
+    font-size: 28px;
     font-weight: bold;
-    display: block;
-    margin-top: 10px;
 }
 </style>
 
 </head>
 <body>
 
-<!-- SIDEBAR -->
-<div class="sidebar">
-    <h2>Fidelitipon</h2>
+<header>
+    Panel Administrador – Fidelitipon
+</header>
 
-    <a href="dashboard.php" class="active">📊 Dashboard</a>
-    <a href="usuarios.php">👤 Usuarios</a>
-    <a href="comercios.php">🏪 Comercios</a>
-    <a href="cupones.php">🎟 Cupones</a>
-    <a href="validar.php">📷 Validar</a>
-    <a href="reportes.php">📈 Reportes</a>
-    <a href="notificaciones.php">🔔 Notificaciones</a>
-    <a href="logout.php">🚪 Salir</a>
-</div>
+<div class="container">
 
-<!-- CONTENIDO -->
-<div class="content">
-
-    <h1>Dashboard</h1>
-    <p>Bienvenido al panel administrativo de Fidelitipon. Aquí tienes una visión general.</p>
-
-    <div class="dashboard-grid">
-
-        <div class="card-stat card-blue">
-            Usuarios registrados
-            <span><?= $total_usuarios ?></span>
+    <div class="grid">
+        
+        <div class="card">
+            <h3>Usuarios Registrados</h3>
+            <div class="value"><?= $totUsuarios ?></div>
         </div>
 
-        <div class="card-stat card-green">
-            Comercios
-            <span><?= $total_comercios ?></span>
+        <div class="card">
+            <h3>Comercios</h3>
+            <div class="value"><?= $totComercios ?></div>
         </div>
 
-        <div class="card-stat card-orange">
-            Cupones totales
-            <span><?= $total_cupones ?></span>
+        <div class="card">
+            <h3>Total Cupones</h3>
+            <div class="value"><?= $totCupones ?></div>
         </div>
 
-        <div class="card-stat card-green">
-            Cupones activos
-            <span><?= $activos ?></span>
+        <div class="card">
+            <h3>Cupones Pendientes</h3>
+            <div class="value"><?= $cuponesPend ?></div>
         </div>
 
-        <div class="card-stat card-gray">
-            Cupones usados
-            <span><?= $usados ?></span>
+        <div class="card">
+            <h3>Cupones Canjeados</h3>
+            <div class="value"><?= $cuponesCanj ?></div>
         </div>
 
-        <div class="card-stat card-red">
-            Cupones caducados
-            <span><?= $caducados ?></span>
+        <div class="card">
+            <h3>Cupones Caducados</h3>
+            <div class="value"><?= $cuponesCad ?></div>
         </div>
 
-        <div class="card-stat card-purple">
-            Validaciones totales
-            <span><?= $validaciones ?></span>
+        <div class="card">
+            <h3>Validaciones Realizadas</h3>
+            <div class="value"><?= $totValidaciones ?></div>
+        </div>
+
+        <div class="card">
+            <h3>Notificaciones Enviadas</h3>
+            <div class="value"><?= $totNotificaciones ?></div>
         </div>
 
     </div>
