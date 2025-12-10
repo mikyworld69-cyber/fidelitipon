@@ -2,203 +2,170 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
 }
 
-// ======================================
-// MÉTRICAS GENERALES
-// ======================================
-$cupones_totales   = $conn->query("SELECT COUNT(*) AS t FROM cupones")->fetch_assoc()["t"];
-$cupones_activos   = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='activo'")->fetch_assoc()["t"];
-$cupones_usados    = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='usado'")->fetch_assoc()["t"];
-$cupones_caducados = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='caducado'")->fetch_assoc()["t"];
-$validaciones      = $conn->query("SELECT COUNT(*) AS t FROM validaciones")->fetch_assoc()["t"];
+// ================================
+// ESTADÍSTICAS PRINCIPALES
+// ================================
+$totalCupones = $conn->query("SELECT COUNT(*) AS total FROM cupones")->fetch_assoc()["total"];
+$cuponesActivos = $conn->query("SELECT COUNT(*) AS total FROM cupones WHERE estado='activo'")->fetch_assoc()["total"];
+$cuponesUsados = $conn->query("SELECT COUNT(*) AS total FROM cupones WHERE estado='usado'")->fetch_assoc()["total"];
+$cuponesCaducados = $conn->query("SELECT COUNT(*) AS total FROM cupones WHERE estado='caducado'")->fetch_assoc()["total"];
 
-// ======================================
-// CUPONES POR COMERCIO
-// ======================================
-$por_comercio = $conn->query("
-    SELECT com.nombre AS comercio, COUNT(c.id) AS total
-    FROM cupones c
-    LEFT JOIN comercios com ON com.id = c.comercio_id
-    GROUP BY com.id
-    ORDER BY total DESC
-");
+$totalUsuarios = $conn->query("SELECT COUNT(*) AS total FROM usuarios")->fetch_assoc()["total"];
+$totalComercios = $conn->query("SELECT COUNT(*) AS total FROM comercios")->fetch_assoc()["total"];
 
-// ======================================
-// USUARIOS REGISTRADOS POR MES
-// ======================================
-$usuarios_mes = $conn->query("
-    SELECT DATE_FORMAT(fecha_registro, '%Y-%m') AS mes, COUNT(*) AS total
-    FROM usuarios
-    GROUP BY mes
-    ORDER BY mes DESC
-");
+$validacionesHoy = $conn->query("
+    SELECT COUNT(*) AS total 
+    FROM validaciones 
+    WHERE DATE(fecha_validacion) = CURDATE()
+")->fetch_assoc()["total"];
 
-// ======================================
-// ÚLTIMAS VALIDACIONES
-// ======================================
-$ultimas_validaciones = $conn->query("
-    SELECT v.fecha_validacion, 
-        c.titulo, c.codigo,
-        u.nombre AS usuario_nombre,
-        com.nombre AS comercio_nombre
+// Validaciones recientes
+$ultimasValidaciones = $conn->query("
+    SELECT 
+        v.fecha_validacion,
+        v.metodo,
+        c.codigo,
+        com.nombre AS comercio
     FROM validaciones v
-    LEFT JOIN cupones c ON c.id = v.cupon_id
-    LEFT JOIN usuarios u ON u.id = c.usuario_id
-    LEFT JOIN comercios com ON com.id = c.comercio_id
+    LEFT JOIN cupones c ON v.cupon_id = c.id
+    LEFT JOIN comercios com ON v.comercio_id = com.id
     ORDER BY v.fecha_validacion DESC
     LIMIT 10
 ");
+
+// Validaciones por comercio
+$porComercio = $conn->query("
+    SELECT 
+        com.nombre AS comercio,
+        COUNT(v.id) AS total
+    FROM validaciones v
+    LEFT JOIN comercios com ON v.comercio_id = com.id
+    GROUP BY v.comercio_id
+    ORDER BY total DESC
+");
+
+// Cupones creados por día (7 días)
+$cuponesPorDia = $conn->query("
+    SELECT DATE(fecha_creacion) AS dia, COUNT(*) AS total
+    FROM cupones
+    GROUP BY DATE(fecha_creacion)
+    ORDER BY dia DESC
+    LIMIT 7
+");
+
+// Nuevos usuarios por día (7 días)
+$usuariosPorDia = $conn->query("
+    SELECT DATE(fecha_registro) AS dia, COUNT(*) AS total
+    FROM usuarios
+    GROUP BY DATE(fecha_registro)
+    ORDER BY dia DESC
+    LIMIT 7
+");
+
+include "_header.php";
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Reportes | Fidelitipon Admin</title>
-<link rel="stylesheet" href="admin.css">
 
-<style>
-.stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 20px;
-    margin-bottom: 25px;
-}
-.card-stat {
-    padding: 22px;
-    color: white;
-    border-radius: 14px;
-    font-size: 18px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-.card-blue { background: #3498db; }
-.card-green { background: #1abc9c; }
-.card-gray  { background: #7f8c8d; }
-.card-red   { background: #c0392b; }
-.card-purple { background: #9b59b6; }
-.card-stat span {
-    font-size: 32px;
-    display: block;
-    margin-top: 8px;
-}
-</style>
+<h1>Reportes del Sistema</h1>
 
-</head>
-<body>
+<div class="card">
+    <h2>Resumen General</h2>
 
-<!-- SIDEBAR -->
-<div class="sidebar">
-    <h2>Fidelitipon</h2>
+    <p><strong>Total cupones:</strong> <?= $totalCupones ?></p>
+    <p style="color:#27ae60;"><strong>Activos:</strong> <?= $cuponesActivos ?></p>
+    <p style="color:#7f8c8d;"><strong>Usados:</strong> <?= $cuponesUsados ?></p>
+    <p style="color:#c0392b;"><strong>Caducados:</strong> <?= $cuponesCaducados ?></p>
 
-    <a href="dashboard.php">📊 Dashboard</a>
-    <a href="usuarios.php">👤 Usuarios</a>
-    <a href="comercios.php">🏪 Comercios</a>
-    <a href="cupones.php">🎟 Cupones</a>
-    <a href="validar.php">📷 Validar</a>
-    <a href="reportes.php" class="active">📈 Reportes</a>
-    <a href="notificaciones.php">🔔 Notificaciones</a>
-    <a href="logout.php">🚪 Salir</a>
+    <hr style="margin: 20px 0;">
+
+    <p><strong>Total usuarios:</strong> <?= $totalUsuarios ?></p>
+    <p><strong>Total comercios:</strong> <?= $totalComercios ?></p>
+
+    <p><strong>Validaciones hoy:</strong> <?= $validacionesHoy ?></p>
 </div>
 
-<!-- CONTENIDO -->
-<div class="content">
+<!-- VALIDACIONES RECIENTES -->
+<div class="card">
+    <h2>Últimas Validaciones</h2>
 
-    <h1>Reportes y Estadísticas</h1>
+    <table>
+        <tr>
+            <th>Fecha</th>
+            <th>Cupón</th>
+            <th>Comercio</th>
+            <th>Método</th>
+        </tr>
 
-    <!-- TARJETAS ESTADÍSTICAS -->
-    <div class="stats-grid">
-        <div class="card-stat card-blue">
-            Cupones Totales
-            <span><?= $cupones_totales ?></span>
-        </div>
-
-        <div class="card-stat card-green">
-            Activos
-            <span><?= $cupones_activos ?></span>
-        </div>
-
-        <div class="card-stat card-gray">
-            Usados
-            <span><?= $cupones_usados ?></span>
-        </div>
-
-        <div class="card-stat card-red">
-            Caducados
-            <span><?= $cupones_caducados ?></span>
-        </div>
-
-        <div class="card-stat card-purple">
-            Validaciones Totales
-            <span><?= $validaciones ?></span>
-        </div>
-    </div>
-
-    <!-- CUPONES POR COMERCIO -->
-    <div class="card">
-        <h2>Cupones por Comercio</h2>
-
-        <table>
-            <tr>
-                <th>Comercio</th>
-                <th>Total de Cupones</th>
-            </tr>
-
-            <?php while ($row = $por_comercio->fetch_assoc()): ?>
-            <tr>
-                <td><?= htmlspecialchars($row["comercio"] ?: "—") ?></td>
-                <td><?= $row["total"] ?></td>
-            </tr>
-            <?php endwhile; ?>
-        </table>
-    </div>
-
-    <!-- USUARIOS REGISTRADOS POR MES -->
-    <div class="card">
-        <h2>Usuarios Registrados por Mes</h2>
-
-        <table>
-            <tr>
-                <th>Mes</th>
-                <th>Total</th>
-            </tr>
-
-            <?php while ($row = $usuarios_mes->fetch_assoc()): ?>
-            <tr>
-                <td><?= $row["mes"] ?></td>
-                <td><?= $row["total"] ?></td>
-            </tr>
-            <?php endwhile; ?>
-        </table>
-    </div>
-
-    <!-- ÚLTIMAS VALIDACIONES -->
-    <div class="card">
-        <h2>Últimas Validaciones</h2>
-
-        <table>
-            <tr>
-                <th>Fecha</th>
-                <th>Cupón</th>
-                <th>Usuario</th>
-                <th>Comercio</th>
-            </tr>
-
-            <?php while ($v = $ultimas_validaciones->fetch_assoc()): ?>
-            <tr>
-                <td><?= date("d/m/Y H:i", strtotime($v["fecha_validacion"])) ?></td>
-                <td><?= htmlspecialchars($v["titulo"]) ?><br><small><?= $v["codigo"] ?></small></td>
-                <td><?= htmlspecialchars($v["usuario_nombre"] ?: "—") ?></td>
-                <td><?= htmlspecialchars($v["comercio_nombre"] ?: "—") ?></td>
-            </tr>
-            <?php endwhile; ?>
-        </table>
-    </div>
-
+        <?php while ($v = $ultimasValidaciones->fetch_assoc()): ?>
+        <tr>
+            <td><?= $v["fecha_validacion"] ?></td>
+            <td><?= $v["codigo"] ?></td>
+            <td><?= $v["comercio"] ?></td>
+            <td><?= $v["metodo"] ?></td>
+        </tr>
+        <?php endwhile; ?>
+    </table>
 </div>
 
-</body>
-</html>
+<!-- VALIDACIONES POR COMERCIO -->
+<div class="card">
+    <h2>Validaciones por Comercio</h2>
+
+    <table>
+        <tr>
+            <th>Comercio</th>
+            <th>Total validaciones</th>
+        </tr>
+
+        <?php while ($p = $porComercio->fetch_assoc()): ?>
+        <tr>
+            <td><?= $p["comercio"] ?></td>
+            <td><?= $p["total"] ?></td>
+        </tr>
+        <?php endwhile; ?>
+    </table>
+</div>
+
+<!-- CUPONES POR DÍA -->
+<div class="card">
+    <h2>Cupones creados por día (últimos 7 días)</h2>
+
+    <table>
+        <tr>
+            <th>Día</th>
+            <th>Total</th>
+        </tr>
+
+        <?php while ($c = $cuponesPorDia->fetch_assoc()): ?>
+        <tr>
+            <td><?= $c["dia"] ?></td>
+            <td><?= $c["total"] ?></td>
+        </tr>
+        <?php endwhile; ?>
+    </table>
+</div>
+
+<!-- USUARIOS POR DÍA -->
+<div class="card">
+    <h2>Usuarios nuevos por día (últimos 7 días)</h2>
+
+    <table>
+        <tr>
+            <th>Día</th>
+            <th>Total</th>
+        </tr>
+
+        <?php while ($u = $usuariosPorDia->fetch_assoc()): ?>
+        <tr>
+            <td><?= $u["dia"] ?></td>
+            <td><?= $u["total"] ?></td>
+        </tr>
+        <?php endwhile; ?>
+    </table>
+</div>
+
+<?php include "_footer.php"; ?>
