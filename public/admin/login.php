@@ -12,8 +12,15 @@ $mensaje = "";
 
 // PROCESO DE LOGIN
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
-var_dump($_POST);
+    
+$sql = $conn->prepare("SELECT id, usuario, email, password FROM admin WHERE email = ?");
+$sql->bind_param("s", $email);
+$sql->execute();
+$res = $sql->get_result();
+
+var_dump($res->fetch_assoc());
 exit;
+
 
     $email = trim($_POST["email"]);
     $password = trim($_POST["password"]);
