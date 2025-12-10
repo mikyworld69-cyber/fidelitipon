@@ -153,5 +153,32 @@ $cupones = $sql->get_result();
 
 <script src="/push/notificaciones.js"></script>
 
+    <button id="btnInstalar" class="btn" style="display:none; margin:25px auto; width:90%;">
+    📲 Instalar Fidelitipon
+</button>
+
+<script>
+let deferredPrompt = null;
+
+window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById("btnInstalar").style.display = "block";
+});
+
+document.getElementById("btnInstalar").addEventListener("click", async () => {
+    if (!deferredPrompt) return;
+
+    deferredPrompt.prompt();
+    const outcome = await deferredPrompt.userChoice;
+
+    if (outcome.outcome === "accepted") {
+        console.log("PWA instalada");
+    }
+    deferredPrompt = null;
+});
+</script>
+
+
 </body>
 </html>
