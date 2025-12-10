@@ -148,7 +148,7 @@ $cupones = $sql->get_result();
 <div class="bottom-nav">
     <a href="panel_usuario.php" class="active">🏠 Inicio</a>
     <a href="perfil.php">👤 Perfil</a>
-    <a href="/logout.php">🚪 Salir</a>
+    <a href="/app/logout.php">🚪 Salir</a>
 </div>
 
 <script src="/push/notificaciones.js"></script>
