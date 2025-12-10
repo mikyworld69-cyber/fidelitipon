@@ -1,29 +1,52 @@
 <?php
+session_start();
 require_once __DIR__ . "/../../config/db.php";
+
+// Si ya está logueado → entra directo
+if (isset($_SESSION["usuario_id"])) {
+    header("Location: panel_usuario.php");
+    exit;
+}
 
 $mensaje = "";
 
+// Procesar registro
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $nombre = trim($_POST["nombre"]);
     $telefono = trim($_POST["telefono"]);
     $password = trim($_POST["password"]);
+    $nombre   = trim($_POST["nombre"]);
 
-    // Hash de contraseña
-    $password_hash = password_hash($password, PASSWORD_DEFAULT);
+    // 1. Verificar si el teléfono existe
+    $check = $conn->prepare("SELECT id FROM usuarios WHERE telefono = ?");
+    $check->bind_param("s", $telefono);
+    $check->execute();
+    $res = $check->get_result();
 
-    // Insertar usuario
-    $sql = $conn->prepare("
-        INSERT INTO usuarios (telefono, password, nombre, fecha_registro)
-        VALUES (?, ?, ?, NOW())
-    ");
-    $sql->bind_param("sss", $telefono, $password_hash, $nombre);
-
-    if ($sql->execute()) {
-        header("Location: login.php?ok=1");
-        exit;
+    if ($res->num_rows > 0) {
+        $mensaje = "❌ Este teléfono ya está registrado.";
     } else {
-        $mensaje = "❌ Error: teléfono ya registrado o fallo en la BD.";
+
+        // 2. Crear usuario
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+
+        $insert = $conn->prepare("
+            INSERT INTO usuarios (telefono, password, nombre, fecha_registro)
+            VALUES (?, ?, ?, NOW())
+        ");
+        $insert->bind_param("sss", $telefono, $hash, $nombre);
+
+        if ($insert->execute()) {
+
+            // 3. Autologin
+            $_SESSION["usuario_id"] = $insert->insert_id;
+
+            header("Location: panel_usuario.php");
+            exit;
+
+        } else {
+            $mensaje = "❌ Error al crear la cuenta.";
+        }
     }
 }
 ?>
@@ -31,67 +54,93 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Registro | Fidelitipon</title>
+<title>Crear Cuenta | Fidelitipon</title>
 
 <style>
 body {
-    background: #f1f1f1;
-    font-family: Arial;
+    margin: 0;
+    padding: 0;
+    background: #eef2f7;
+    font-family: Arial, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     height: 100vh;
 }
 
-.box {
+.register-box {
+    width: 330px;
     background: white;
-    padding: 25px;
-    width: 320px;
-    border-radius: 14px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 30px 25px;
+    border-radius: 18px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+    text-align: center;
+}
+
+.icon {
+    font-size: 60px;
+    margin-bottom: 10px;
+    color: #27ae60;
 }
 
 h2 {
-    text-align: center;
-    margin-bottom: 15px;
+    margin-bottom: 25px;
+    font-size: 24px;
+    color: #2c3e50;
 }
 
 .input {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid #ccc;
     margin-bottom: 15px;
-    border-radius: 10px;
-    border: 1px solid #bbb;
+    font-size: 15px;
 }
 
 .btn {
     width: 100%;
-    padding: 12px;
-    border-radius: 10px;
+    padding: 14px;
+    border-radius: 12px;
     background: #27ae60;
     color: white;
     border: none;
     cursor: pointer;
+    font-size: 16px;
 }
 
 .btn:hover {
-    background: #1e8c4d;
+    background: #1f8a4a;
 }
 
 .error {
     background: #e74c3c;
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 15px;
     color: white;
-    text-align: center;
+    padding: 12px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+
+.register-link {
+    margin-top: 12px;
+    font-size: 14px;
+}
+
+.register-link a {
+    color: #3498db;
+    text-decoration: none;
+}
+.register-link a:hover {
+    text-decoration: underline;
 }
 </style>
 
 </head>
 <body>
 
-<div class="box">
+<div class="register-box">
+    <div class="icon">📝</div>
     <h2>Crear Cuenta</h2>
 
     <?php if ($mensaje): ?>
@@ -99,14 +148,14 @@ h2 {
     <?php endif; ?>
 
     <form method="POST">
-        <input class="input" type="text" name="nombre" placeholder="Nombre" required>
         <input class="input" type="text" name="telefono" placeholder="Teléfono" required>
         <input class="input" type="password" name="password" placeholder="Contraseña" required>
-        <button class="btn">Registrar</button>
+        <input class="input" type="text" name="nombre" placeholder="Nombre (opcional)">
+        <button class="btn">Crear cuenta</button>
     </form>
 
-    <div style="text-align:center;margin-top:10px;">
-        <a href="login.php">Ya tengo cuenta</a>
+    <div class="register-link">
+        ¿Ya tienes cuenta? <a href="login.php">Inicia sesión</a>
     </div>
 </div>
 
