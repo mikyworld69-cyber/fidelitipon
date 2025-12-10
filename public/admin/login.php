@@ -12,6 +12,8 @@ $mensaje = "";
 
 // PROCESO DE LOGIN
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+var_dump($_POST);
+exit;
 
     $email = trim($_POST["email"]);
     $password = trim($_POST["password"]);
