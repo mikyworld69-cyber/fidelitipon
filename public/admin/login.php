@@ -46,13 +46,15 @@ if (password_verify($password, $admin["password"])) {
 }
 
 // PARA QUE SE VEA EN PANTALLA SIN REDIRECCIONAR
-die("FIN TEST VERIFY");
+
 
 
         if (password_verify($password, $admin["password"])) {
 
             // Guardar sesión
             $_SESSION["admin_id"] = $admin["id"];
+            
+echo "<h1>password_verify es TRUE</h1>";
 
             header("Location: dashboard.php");
             exit;
