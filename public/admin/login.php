@@ -36,10 +36,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         // Comprobar contraseña hash
         
         echo "<pre>";
-echo "PASS RECIBIDO: [" . $password . "]\n";
-echo "LONGITUD PASSWORD RECIBIDO: " . strlen($password) . "\n";
-echo "</pre>";
-die();
+echo "PASS RECIBIDO: [$password]\n";
+echo "HASH EN BD: [" . $admin["password"] . "]\n";
+
+if (password_verify($password, $admin["password"])) {
+    echo "password_verify: TRUE\n";
+} else {
+    echo "password_verify: FALSE\n";
+}
+
+// PARA QUE SE VEA EN PANTALLA SIN REDIRECCIONAR
+die("FIN TEST VERIFY");
+
 
         if (password_verify($password, $admin["password"])) {
 
