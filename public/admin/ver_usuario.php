@@ -1,208 +1,162 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/db.php';
-include "_header.php";
 
+// Si no hay sesión admin → fuera
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
 }
 
+// Validar ID usuario recibido
 if (!isset($_GET["id"])) {
-    echo "Usuario no especificado.";
+    header("Location: usuarios.php");
     exit;
 }
 
-$user_id = intval($_GET["id"]);
+$usuario_id = intval($_GET["id"]);
 
-// ================================
-// OBTENER DATOS DEL USUARIO
-// ================================
-$sql = $conn->prepare("
-    SELECT *
+// Obtener datos del usuario
+$sqlUser = $conn->prepare("
+    SELECT id, nombre, telefono, email, fecha_registro
     FROM usuarios
     WHERE id = ?
+    LIMIT 1
 ");
-$sql->bind_param("i", $user_id);
-$sql->execute();
-$usuario = $sql->get_result()->fetch_assoc();
+$sqlUser->bind_param("i", $usuario_id);
+$sqlUser->execute();
+$usuario = $sqlUser->get_result()->fetch_assoc();
 
 if (!$usuario) {
-    echo "Usuario no encontrado.";
-    exit;
+    die("Usuario no encontrado.");
 }
 
-// ================================
-// OBTENER CUPONES DEL USUARIO
-// ================================
-$cupones_q = $conn->prepare("
-    SELECT id, codigo, titulo, estado, fecha_caducidad, total_casillas
+// Obtener cupones del usuario
+$sqlCupones = $conn->prepare("
+    SELECT id, codigo, titulo, descripcion, estado, fecha_caducidad, total_casillas, casillas_marcadas, premium
     FROM cupones
     WHERE usuario_id = ?
     ORDER BY id DESC
 ");
-$cupones_q->bind_param("i", $user_id);
-$cupones_q->execute();
-$cupones = $cupones_q->get_result();
+$sqlCupones->bind_param("i", $usuario_id);
+$sqlCupones->execute();
+$cupones = $sqlCupones->get_result();
+
+include "_header.php";
 ?>
 
 <style>
 .user-box {
-    width: 90%;
     background: white;
-    margin: 20px auto;
-    padding: 25px;
-    border-radius: 22px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+    padding: 20px;
+    border-radius: 14px;
+    margin-bottom: 20px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
 }
 
-h2 {
-    margin-top: 0;
-}
-
-.info-line {
-    margin: 5px 0;
-    font-size: 15px;
-    color: #555;
-}
-
-.cupon-card {
-    background: white;
-    padding: 15px;
-    margin: 15px 0;
-    border-radius: 16px;
-    display: grid;
-    grid-template-columns: 120px 1fr 120px;
-    gap: 20px;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+.cupon-item {
+    background: #fff;
+    padding: 18px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.07);
 }
 
 .badge {
     padding: 6px 12px;
-    border-radius: 8px;
-    color:white;
     font-size: 12px;
-    font-weight: bold;
-}
-.badge-activo { background:#2ecc71; }
-.badge-usado { background:#7f8c8d; }
-.badge-caducado { background:#e74c3c; }
-
-/* Donut */
-.donut {
-    width: 110px;
-    height: 110px;
-    margin: auto;
-}
-.donut-text {
-    fill: #333;
-    font-size: 17px;
-    font-weight: bold;
+    border-radius: 8px;
+    color: #fff;
+    margin-left: 10px;
 }
 
-/* Acciones */
-.actions a {
+.badge-activo { background: #27ae60; }
+.badge-usado { background: #7f8c8d; }
+.badge-caducado { background: #c0392b; }
+.badge-premium { background: #f39c12; }
+
+.progress-bar {
+    background: #e0e0e0;
+    height: 8px;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+.progress-fill {
+    height: 8px;
+    background: #3498db;
+    border-radius: 6px;
+}
+
+.btn-ver {
     display: inline-block;
-    padding: 9px 14px;
-    margin-right: 5px;
-    background:#2980b9;
-    color:white;
-    border-radius:8px;
-    text-decoration:none;
-    font-size:13px;
+    background: #3498db;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    margin-top: 12px;
 }
-.actions a:hover { background:#1f6fa3; }
 </style>
 
+<h1>Usuario: <?= htmlspecialchars($usuario["nombre"]) ?></h1>
+
 <div class="user-box">
+    <p><strong>📱 Teléfono:</strong> <?= htmlspecialchars($usuario["telefono"]) ?></p>
+    <p><strong>📧 Email:</strong> <?= htmlspecialchars($usuario["email"]) ?></p>
+    <p><strong>🕒 Registro:</strong> <?= $usuario["fecha_registro"] ?></p>
+</div>
 
-    <h2>👤 <?= htmlspecialchars($usuario["nombre"]) ?></h2>
+<h2>Cupones del Usuario</h2>
 
-    <p class="info-line">📱 Teléfono: <strong><?= $usuario["telefono"] ?></strong></p>
-    <p class="info-line">📅 Registrado: <strong><?= date("d/m/Y", strtotime($usuario["fecha_registro"])) ?></strong></p>
+<?php if ($cupones->num_rows === 0): ?>
+    <div class="user-box">
+        <p>No tiene cupones asignados.</p>
+    </div>
+<?php endif; ?>
 
-    <br>
+<?php while ($c = $cupones->fetch_assoc()): ?>
 
-    <div class="actions">
-        <a href="editar_usuario.php?id=<?= $user_id ?>">✏️ Editar usuario</a>
-        <a href="eliminar_usuario.php?id=<?= $user_id ?>" 
-           onclick="return confirm('¿Eliminar este usuario y TODOS sus cupones?');">
-           🗑 Eliminar usuario
-        </a>
-        <a href="usuarios.php">⬅️ Volver</a>
+    <?php
+        $estado = strtolower($c["estado"]);
+        $badgeClass = "badge-activo";
+        if ($estado === "usado") $badgeClass = "badge-usado";
+        if ($estado === "caducado") $badgeClass = "badge-caducado";
+
+        // progreso casillas
+        $total = intval($c["total_casillas"]);
+        $marcadas = intval($c["casillas_marcadas"]);
+        $pct = ($total > 0) ? round(($marcadas / $total) * 100) : 0;
+    ?>
+
+    <div class="cupon-item">
+
+        <h3>
+            <?= htmlspecialchars($c["titulo"]) ?>
+            <span class="badge <?= $badgeClass ?>"><?= strtoupper($c["estado"]) ?></span>
+
+            <?php if ($c["premium"] == 1): ?>
+                <span class="badge badge-premium">PREMIUM</span>
+            <?php endif; ?>
+        </h3>
+
+        <p><?= nl2br(htmlspecialchars($c["descripcion"])) ?></p>
+
+        <p><strong>Código:</strong> <?= $c["codigo"] ?></p>
+
+        <p><strong>Caduca:</strong> <?= date("d/m/Y", strtotime($c["fecha_caducidad"])) ?></p>
+
+        <?php if ($total > 0): ?>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: <?= $pct ?>%;"></div>
+            </div>
+            <p><?= $marcadas ?>/<?= $total ?> casillas marcadas</p>
+        <?php endif; ?>
+
+        <a href="/app/ver_cupon.php?id=<?= $c['id'] ?>" class="btn-ver">Ver Cupón</a>
+
     </div>
 
-    <hr><br>
-
-    <h3>Cupones del Usuario</h3>
-
-    <?php if ($cupones->num_rows === 0): ?>
-        <p>No tiene cupones asignados.</p>
-    <?php endif; ?>
-
-    <?php while ($c = $cupones->fetch_assoc()): ?>
-
-        <?php
-            // Obtener casillas usadas
-            $qCas = $conn->prepare("
-                SELECT COUNT(*) AS usadas
-                FROM cupon_casillas
-                WHERE cupon_id = ? AND estado = 1
-            ");
-            $qCas->bind_param("i", $c["id"]);
-            $qCas->execute();
-            $usadas = $qCas->get_result()->fetch_assoc()["usadas"];
-
-            $total = $c["total_casillas"];
-            $porcentaje = $total > 0 ? round(($usadas / $total) * 100) : 0;
-
-            $badgeClass =
-                ($c["estado"] === "usado" ? "badge-usado" :
-                ($c["estado"] === "caducado" ? "badge-caducado" : "badge-activo"));
-        ?>
-
-        <div class="cupon-card">
-
-            <!-- Donut -->
-            <svg class="donut" viewBox="0 0 36 36">
-                <path 
-                    d="M18 2.0845
-                    a 15.9155 15.9155 0 0 1 0 31.831
-                    a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="#eee"
-                    stroke-width="3" />
-
-                <path 
-                    d="M18 2.0845
-                    a 15.9155 15.9155 0 0 1 0 31.831
-                    a 15.9155 15.9155 0 0 1 0 -31.831"
-                    fill="none"
-                    stroke="#3498db"
-                    stroke-width="3"
-                    stroke-dasharray="<?= $porcentaje ?>, 100" />
-
-                <text x="18" y="20.35" class="donut-text" text-anchor="middle">
-                    <?= $porcentaje ?>%
-                </text>
-            </svg>
-
-            <div>
-                <h3><?= htmlspecialchars($c["titulo"]) ?></h3>
-                <p><strong>Código:</strong> <?= $c["codigo"] ?></p>
-                <p><strong>Caduca:</strong> <?= date("d/m/Y", strtotime($c["fecha_caducidad"])) ?></p>
-                <span class="badge <?= $badgeClass ?>"><?= strtoupper($c["estado"]) ?></span>
-            </div>
-
-            <div class="actions" style="text-align:right;">
-                <a href="ver_cupon.php?id=<?= $c["id"] ?>">👁 Ver Cupón</a>
-                <a href="editar_cupon.php?id=<?= $c["id"] ?>">✏️ Editar Cupón</a>
-            </div>
-
-        </div>
-
-    <?php endwhile; ?>
-
-</div>
+<?php endwhile; ?>
 
 <?php include "_footer.php"; ?>
