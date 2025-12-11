@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-// Si ya está logueado → entra
+// Si el admin ya está logueado → entrar directamente
 if (isset($_SESSION["admin_id"])) {
     header("Location: dashboard.php");
     exit;
@@ -10,16 +10,18 @@ if (isset($_SESSION["admin_id"])) {
 
 $mensaje = "";
 
-// PROCESO LOGIN
+// ================================
+// PROCESAR LOGIN
+// ================================
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $email = trim($_POST["email"]);
     $password = trim($_POST["password"]);
 
-    // Consulta por email
+    // Consulta a la tabla correcta: admins
     $sql = $conn->prepare("
         SELECT id, usuario, email, password 
-        FROM admin 
+        FROM admins
         WHERE email = ?
         LIMIT 1
     ");
@@ -31,10 +33,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $admin = $res->fetch_assoc();
 
-        // Verificación correcta de contraseña
+        // Comprobar contraseña hash
         if (password_verify($password, $admin["password"])) {
 
+            // Guardar sesión
             $_SESSION["admin_id"] = $admin["id"];
+
             header("Location: dashboard.php");
             exit;
 
@@ -53,6 +57,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <meta charset="UTF-8">
 <title>Admin Login | Fidelitipon</title>
 <link rel="stylesheet" href="admin.css">
+
 <style>
 body {
     background: #f0f0f0;
@@ -110,6 +115,14 @@ h2 {
     text-align: center;
     margin-bottom: 15px;
 }
+
+a {
+    color: #2980b9;
+    text-decoration:none;
+}
+a:hover {
+    text-decoration:underline;
+}
 </style>
 </head>
 
@@ -127,10 +140,10 @@ h2 {
         <input type="password" name="password" class="input" placeholder="Contraseña" required>
         <button class="btn">Entrar</button>
     </form>
-    <p style="margin-top:15px; text-align:center;">
-    <a href="forgot.php">¿Olvidaste tu contraseña?</a>
-</p>
 
+    <p style="margin-top:15px; text-align:center;">
+        <a href="forgot.php">¿Olvidaste tu contraseña?</a>
+    </p>
 </div>
 
 </body>
