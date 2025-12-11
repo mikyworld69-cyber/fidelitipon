@@ -1,30 +1,39 @@
-# PHP 8.2 con CLI
-FROM php:8.2-cli
+# Imagen base recomendada para aplicaciones web PHP
+FROM php:8.2-apache
 
-# Configuración del working directory
-WORKDIR /app
+# Habilitar mod_rewrite (importante para rutas amigables y paneles)
+RUN a2enmod rewrite
 
-# Instalar dependencias básicas del sistema
+# Instalar dependencias del sistema para PHP extensions
 RUN apt-get update && apt-get install -y \
-    git unzip libzip-dev libpng-dev \
-    && docker-php-ext-install zip mysqli pdo pdo_mysql \
-    && apt-get clean
+    libpng-dev \
+    libjpeg-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip \
+    libsodium-dev \
+    libssl-dev \
+    && docker-php-ext-install mysqli pdo pdo_mysql sodium
 
-# Composer oficial
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Activar soporte SSL (openssl)
+RUN docker-php-ext-install openssl || true
 
-# --- CAPA QUE SE CACHEA (importante) ---
-# Copiar composer.json y composer.lock antes que el código
-COPY composer.json composer.lock ./
+# Configuración de Apache: permitir .htaccess en /var/www/html
+RUN echo "<Directory /var/www/html/> \n\
+    AllowOverride All \n\
+</Directory>" > /etc/apache2/conf-available/override.conf \
+    && a2enconf override.conf
 
-# Instalar dependencias (queda en caché si composer.json no cambia)
-RUN composer install --no-dev --prefer-dist --no-interaction --no-progress
+# Copiar el código al contenedor
+COPY . /var/www/html/
 
-# --- COPIAR EL RESTO DEL PROYECTO ---
-COPY . .
+# Permisos correctos para sesiones y archivos
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
 
-# Exponer puerto (Render detecta 10000 automáticamente)
-EXPOSE 10000
+# Puerto expuesto
+EXPOSE 80
 
-# Comando de inicio
-CMD ["php", "-S", "0.0.0.0:10000", "-t", "public"]
+# Comando por defecto (Apache en foreground)
+CMD ["apache2-foreground"]
