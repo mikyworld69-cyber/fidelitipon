@@ -49,29 +49,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $mail->isSMTP();
                 $mail->Host       = 'smtp.strato.com';
                 $mail->SMTPAuth   = true;
-                $mail->Username   = 'info@iappsweb.com';   // <-- CAMBIAR
-                $mail->Password   = 'Mike91078@MM';         // <-- CAMBIAR
+                $mail->Username   = 'info@iappsweb.com'; 
+                $mail->Password   = 'Mike91078@MM'; 
                 $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // SSL
-                $mail->Port       = 465;                         // SSL
+                $mail->Port       = 465;
 
                 // Remitente
-                $mail->setFrom('info@iappsweb.com', 'Fidelitipon'); // <-- CAMBIAR
+                $mail->setFrom('info@iappsweb.com', 'Fidelitipon');
 
                 // Destinatario
                 $mail->addAddress($email_usuario, $nombre_usuario);
 
-                // Contenido
+                // Formato del email
                 $mail->isHTML(true);
                 $mail->Subject = 'Recuperación de contraseña - Fidelitipon';
                 $mail->Body    = "
                     <h2>Hola, $nombre_usuario</h2>
                     <p>Has solicitado restablecer tu contraseña.</p>
-                    <p>Haz clic en este enlace:</p>
+                    <p>Haz clic en el siguiente enlace:</p>
                     <p><a href='$enlace'>$enlace</a></p>
                     <br>
-                    <p>Si no has pedido esto, ignora el mensaje.</p>
+                    <p>Si no solicitaste este cambio, ignora este mensaje.</p>
                 ";
 
+                // Enviar
                 $mail->send();
                 $mensaje = "Hemos enviado un enlace a tu correo electrónico.";
 
@@ -80,7 +81,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
         } else {
-            $mensaje = "No existe ningún usuario con ese teléfono.";
+            $mensaje = "No existe un usuario con ese teléfono.";
         }
     }
 }
@@ -102,8 +103,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <?php endif; ?>
 
 <form method="POST">
-    <label>Teléfono</label><br>
+    <label>Introduce tu teléfono:</label><br>
     <input type="text" name="telefono" required><br><br>
+
     <button type="submit">Enviar enlace</button>
 </form>
 
