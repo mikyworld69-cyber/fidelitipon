@@ -34,6 +34,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $admin = $res->fetch_assoc();
 
         // Comprobar contraseña hash
+        
+        echo "<pre>";
+echo "PASS RECIBIDO: [" . $password . "]\n";
+echo "LONGITUD PASSWORD RECIBIDO: " . strlen($password) . "\n";
+echo "</pre>";
+die();
+
         if (password_verify($password, $admin["password"])) {
 
             // Guardar sesión
