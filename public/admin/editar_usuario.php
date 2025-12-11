@@ -1,131 +1,116 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/db.php';
-include "_header.php";
 
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
 }
 
+// Validar ID de usuario
 if (!isset($_GET["id"])) {
-    echo "Usuario no especificado.";
-    exit;
+    die("Usuario no especificado.");
 }
 
 $user_id = intval($_GET["id"]);
 
-// ========================================
-// GUARDAR CAMBIOS
-// ========================================
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
-
-    $nombre   = trim($_POST["nombre"]);
-    $telefono = trim($_POST["telefono"]);
-    $fecha_registro = trim($_POST["fecha_registro"]);
-
-    // Si el admin quiere cambiar contraseña
-    $nueva_pass = !empty($_POST["password"]) ? password_hash($_POST["password"], PASSWORD_BCRYPT) : null;
-
-    if ($nueva_pass) {
-        $sql = $conn->prepare("
-            UPDATE usuarios 
-            SET nombre=?, telefono=?, fecha_registro=?, password=?
-            WHERE id=?
-        ");
-        $sql->bind_param("ssssi", $nombre, $telefono, $fecha_registro, $nueva_pass, $user_id);
-    } else {
-        $sql = $conn->prepare("
-            UPDATE usuarios 
-            SET nombre=?, telefono=?, fecha_registro=?
-            WHERE id=?
-        ");
-        $sql->bind_param("sssi", $nombre, $telefono, $fecha_registro, $user_id);
-    }
-
-    $sql->execute();
-
-    echo "<script>alert('Datos del usuario actualizados correctamente');</script>";
-}
-
-
-// ========================================
+// ==============================
 // OBTENER DATOS DEL USUARIO
-// ========================================
+// ==============================
 $sql = $conn->prepare("
-    SELECT *
+    SELECT id, nombre, telefono, email
     FROM usuarios
     WHERE id = ?
 ");
 $sql->bind_param("i", $user_id);
 $sql->execute();
-$user = $sql->get_result()->fetch_assoc();
+$usuario = $sql->get_result()->fetch_assoc();
 
-if (!$user) {
-    echo "Usuario no encontrado.";
-    exit;
+if (!$usuario) {
+    die("Usuario no encontrado.");
 }
+
+$mensaje = "";
+
+// ==============================
+// PROCESAR FORMULARIO
+// ==============================
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+
+    $nombre    = trim($_POST["nombre"]);
+    $telefono  = trim($_POST["telefono"]);
+    $email     = trim($_POST["email"]);
+    $password  = trim($_POST["password"]);
+
+    if ($nombre === "" || $telefono === "") {
+        $mensaje = "❌ Nombre y teléfono son obligatorios.";
+    } else {
+
+        // Si el admin quiere cambiar contraseña
+        if ($password !== "") {
+            $hash = password_hash($password, PASSWORD_BCRYPT);
+            $update = $conn->prepare("
+                UPDATE usuarios 
+                SET nombre = ?, telefono = ?, email = ?, password = ?
+                WHERE id = ?
+            ");
+            $update->bind_param("ssssi", $nombre, $telefono, $email, $hash, $user_id);
+
+        } else {
+            // Actualización sin contraseña
+            $update = $conn->prepare("
+                UPDATE usuarios 
+                SET nombre = ?, telefono = ?, email = ?
+                WHERE id = ?
+            ");
+            $update->bind_param("sssi", $nombre, $telefono, $email, $user_id);
+        }
+
+        if ($update->execute()) {
+            header("Location: editar_usuario.php?id=$user_id&ok=1");
+            exit;
+        } else {
+            $mensaje = "❌ Error actualizando usuario.";
+        }
+    }
+}
+
+include "_header.php";
 ?>
 
-<style>
-.edit-box {
-    width: 90%;
-    background: white;
-    margin: 20px auto;
-    padding: 25px;
-    border-radius: 22px;
-    box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-}
+<h1>Editar Usuario</h1>
 
-label {
-    display:block;
-    font-weight:bold;
-    margin-top:10px;
-}
+<?php if (isset($_GET["ok"])): ?>
+    <div class="card" style="background:#2ecc71;color:white;padding:12px;border-radius:10px;">
+        ✔ Usuario actualizado correctamente
+    </div>
+<?php endif; ?>
 
-input {
-    width:100%;
-    padding:10px;
-    border-radius:10px;
-    border:1px solid #ccc;
-    margin-top:5px;
-}
+<?php if ($mensaje): ?>
+    <div class="card" style="background:#e74c3c;color:white;padding:12px;border-radius:10px;">
+        <?= $mensaje ?>
+    </div>
+<?php endif; ?>
 
-button {
-    padding: 12px 18px;
-    border:none;
-    border-radius:10px;
-    cursor:pointer;
-    margin-top:15px;
-}
+<div class="card">
 
-.btn-save { background:#3498db; color:white; }
-.btn-back { background:#7f8c8d; color:white; }
-</style>
+<form method="POST">
 
-<div class="edit-box">
+    <label>Nombre *</label>
+    <input type="text" name="nombre" value="<?= htmlspecialchars($usuario['nombre']) ?>" required>
 
-    <h2>✏️ Editar Usuario</h2>
+    <label>Teléfono *</label>
+    <input type="text" name="telefono" value="<?= htmlspecialchars($usuario['telefono']) ?>" required>
 
-    <form method="POST">
+    <label>Email</label>
+    <input type="email" name="email" value="<?= htmlspecialchars($usuario['email']) ?>">
 
-        <label>Nombre *</label>
-        <input type="text" name="nombre" value="<?= htmlspecialchars($user["nombre"]) ?>" required>
+    <label>Cambiar contraseña (opcional)</label>
+    <input type="password" name="password" placeholder="Dejar vacío para no cambiar">
 
-        <label>Teléfono *</label>
-        <input type="text" name="telefono" value="<?= htmlspecialchars($user["telefono"]) ?>" required>
+    <button class="btn-success" style="margin-top:15px;">Guardar Cambios</button>
 
-        <label>Fecha de registro *</label>
-        <input type="datetime-local" name="fecha_registro"
-            value="<?= date('Y-m-d\TH:i', strtotime($user["fecha_registro"])) ?>">
-
-        <label>Nueva contraseña (opcional)</label>
-        <input type="password" name="password" placeholder="Dejar vacío para no cambiar">
-
-        <button type="submit" class="btn-save">Guardar Cambios</button>
-        <a href="ver_usuario.php?id=<?= $user_id ?>" class="btn-back">Volver</a>
-
-    </form>
+</form>
 
 </div>
 
