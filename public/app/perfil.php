@@ -1,16 +1,16 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/db.php';
-include __DIR__ . '/../includes/head_app.php'; // HEAD UNIVERSAL
 
-if (!isset($_SESSION["usuario_id"])) {
+// VALIDACIÓN DE SESIÓN CORRECTA
+if (!isset($_SESSION["user_id"])) {
     header("Location: login.php");
     exit;
 }
 
-$user_id = $_SESSION["usuario_id"];
+$user_id = $_SESSION["user_id"];
 
-// OBTENER DATOS ACTUALES
+// OBTENER DATOS DEL USUARIO
 $sql = $conn->prepare("SELECT nombre, telefono FROM usuarios WHERE id = ?");
 $sql->bind_param("i", $user_id);
 $sql->execute();
@@ -37,6 +37,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 }
 ?>
 
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mi Perfil</title>
+
 <link rel="stylesheet" href="/app/app.css">
 
 <style>
@@ -47,13 +54,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     box-shadow: 0 3px 10px rgba(0,0,0,0.08);
     margin: 15px;
 }
-
 .label {
     font-weight: bold;
     margin-bottom: 4px;
     font-size: 14px;
 }
-
 input {
     width: 100%;
     padding: 12px;
@@ -62,7 +67,6 @@ input {
     border: 1px solid #ccc;
     margin-bottom: 15px;
 }
-
 .btn-save {
     width: 100%;
     padding: 14px;
@@ -74,11 +78,7 @@ input {
     margin-top: 10px;
     font-size: 17px;
 }
-
-.btn-save:hover {
-    background: #2980b9;
-}
-
+.btn-save:hover { background: #2980b9; }
 .msg {
     background: #1abc9c;
     padding: 12px;
@@ -87,7 +87,6 @@ input {
     margin-bottom: 10px;
     color: white;
 }
-
 .btn-danger {
     width: 100%;
     padding: 14px;
@@ -99,8 +98,22 @@ input {
     margin-top: 15px;
     font-size: 17px;
 }
+.bottom-nav {
+    position: fixed; bottom: 0; left: 0; width: 100%;
+    background: white; border-top: 1px solid #ddd;
+    display: flex; justify-content: space-around;
+    padding: 12px 0; box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+}
+.bottom-nav a {
+    text-align: center; color: #2c3e50; text-decoration: none;
+}
+.bottom-nav a.active {
+    color: #3498db; font-weight: bold;
+}
 </style>
+</head>
 
+<body>
 
 <div class="app-header">Mi Perfil</div>
 
@@ -123,7 +136,7 @@ input {
 
     <a class="btn-save" href="cambiar_password.php">🔐 Cambiar contraseña</a>
 
-    <a class="btn-danger" href="../logout.php">Cerrar sesión</a>
+    <a class="btn-danger" href="/logout.php">Cerrar sesión</a>
 
 </div>
 
@@ -131,5 +144,8 @@ input {
 <div class="bottom-nav">
     <a href="panel_usuario.php">🏠 Inicio</a>
     <a href="perfil.php" class="active">👤 Perfil</a>
-    <a href="../logout.php">🚪 Salir</a>
+    <a href="/logout.php">🚪 Salir</a>
 </div>
+
+</body>
+</html>
