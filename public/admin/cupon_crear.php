@@ -26,28 +26,48 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $descripcion     = trim($_POST["descripcion"]);
     $fecha_caducidad = !empty($_POST["fecha_caducidad"]) ? $_POST["fecha_caducidad"] : null;
 
+    // Número de casillas premium del cupón
+    $total_casillas  = 10; // Puedes cambiarlo si quieres más o menos
+
     // Código autogenerado (8 caracteres)
     $codigo = strtoupper(substr(md5(uniqid(rand(), true)), 0, 8));
 
     // Insertar cupón
     $sql = $conn->prepare("
-        INSERT INTO cupones (comercio_id, usuario_id, codigo, titulo, descripcion, fecha_caducidad, estado)
-        VALUES (?, ?, ?, ?, ?, ?, 'activo')
+        INSERT INTO cupones (comercio_id, usuario_id, codigo, titulo, descripcion, fecha_caducidad, total_casillas, estado)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'activo')
     ");
 
     $sql->bind_param(
-        "iissss",
+        "iissssi",
         $comercio_id,
         $usuario_id,
         $codigo,
         $titulo,
         $descripcion,
-        $fecha_caducidad
+        $fecha_caducidad,
+        $total_casillas
     );
 
     if ($sql->execute()) {
+
+        // ID del cupón recién creado
+        $cup_id = $conn->insert_id;
+
+        // Crear casillas automáticamente
+        $stmt = $conn->prepare("
+            INSERT INTO cupon_casillas (cupon_id, numero_casilla, estado)
+            VALUES (?, ?, 0)
+        ");
+
+        for ($i = 1; $i <= $total_casillas; $i++) {
+            $stmt->bind_param("ii", $cup_id, $i);
+            $stmt->execute();
+        }
+
         header("Location: cupones.php");
         exit;
+
     } else {
         $mensaje = "❌ Error al crear el cupón.";
     }
