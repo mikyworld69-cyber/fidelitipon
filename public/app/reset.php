@@ -1,49 +1,73 @@
 <?php
 require_once __DIR__ . '/../../config/db.php';
 
-if (!isset($_GET["token"])) {
-    die("Token no válido.");
-}
+$token = $_GET["token"] ?? "";
+$mensaje = "";
 
-$token = $_GET["token"];
-
-$sql = $conn->prepare("SELECT id, token_expira FROM usuarios WHERE token_reset = ?");
+// Validar token existente
+$sql = $conn->prepare("SELECT id FROM usuarios WHERE token_recuperacion = ?");
 $sql->bind_param("s", $token);
 $sql->execute();
-$res = $sql->get_result();
+$sql->store_result();
 
-if ($res->num_rows === 0) {
+if ($sql->num_rows !== 1) {
     die("Token inválido o expirado.");
 }
 
-$user = $res->fetch_assoc();
+$sql->bind_result($id_user);
+$sql->fetch();
 
-if (strtotime($user["token_expira"]) < time()) {
-    die("El enlace ha expirado. Solicita uno nuevo.");
+// Procesar nueva contraseña
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $pass1 = trim($_POST["pass1"]);
+    $pass2 = trim($_POST["pass2"]);
+
+    if ($pass1 === "" || $pass2 === "") {
+        $mensaje = "Todos los campos son obligatorios.";
+    } elseif ($pass1 !== $pass2) {
+        $mensaje = "Las contraseñas no coinciden.";
+    } else {
+        // Guardar nueva contraseña y eliminar token
+        $newHash = password_hash($pass1, PASSWORD_BCRYPT);
+
+        $up = $conn->prepare("UPDATE usuarios SET password = ?, token_recuperacion = NULL WHERE id = ?");
+        $up->bind_param("si", $newHash, $id_user);
+        $up->execute();
+
+        $mensaje = "Contraseña restablecida correctamente. Ya puedes iniciar sesión.";
+    }
 }
-
-require_once __DIR__ . '/../head_universal.php';
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Restablecer contraseña</title>
+<meta charset="UTF-8">
+<title>Restablecer contraseña</title>
+<link rel="stylesheet" href="/app/app.css">
 </head>
+
 <body>
 
-<div class="contenedor-app">
-    <h2 class="titulo-app">Nueva contraseña</h2>
+<div class="app-header">Restablecer contraseña</div>
 
-    <form action="procesar_reset.php" method="POST">
-        <input type="hidden" name="token" value="<?= htmlspecialchars($token) ?>">
+<div class="perfil-box">
 
-        <label>Nueva contraseña</label>
-        <input type="password" name="password" required minlength="5">
+    <?php if ($mensaje): ?>
+        <div class="msg"><?= $mensaje ?></div>
+    <?php endif; ?>
 
-        <button class="btn-primario" type="submit">Guardar</button>
+    <form method="POST">
+        <label class="label">Nueva contraseña</label>
+        <input type="password" name="pass1" required>
+
+        <label class="label">Confirmar contraseña</label>
+        <input type="password" name="pass2" required>
+
+        <button class="btn-save">Guardar contraseña</button>
     </form>
+
+    <a class="btn-danger" href="/app/login.php">Volver al inicio</a>
 </div>
 
 </body>
