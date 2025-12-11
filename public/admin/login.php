@@ -2,7 +2,7 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-// Si el admin ya está logueado → entrar directamente
+// Si ya está logueado → dentro
 if (isset($_SESSION["admin_id"])) {
     header("Location: dashboard.php");
     exit;
@@ -10,15 +10,13 @@ if (isset($_SESSION["admin_id"])) {
 
 $mensaje = "";
 
-// ================================
-// PROCESAR LOGIN
-// ================================
+// PROCESO LOGIN
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $email = trim($_POST["email"]);
     $password = trim($_POST["password"]);
 
-    // Consulta a la tabla correcta: admins
+    // Consulta en la tabla admins
     $sql = $conn->prepare("
         SELECT id, usuario, email, password 
         FROM admins
@@ -33,29 +31,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $admin = $res->fetch_assoc();
 
-        // Comprobar contraseña hash
-        
-        echo "<pre>";
-echo "PASS RECIBIDO: [$password]\n";
-echo "HASH EN BD: [" . $admin["password"] . "]\n";
-
-if (password_verify($password, $admin["password"])) {
-    echo "password_verify: TRUE\n";
-} else {
-    echo "password_verify: FALSE\n";
-}
-
-// PARA QUE SE VEA EN PANTALLA SIN REDIRECCIONAR
-
-
-
+        // Verificación de contraseña
         if (password_verify($password, $admin["password"])) {
 
-            // Guardar sesión
             $_SESSION["admin_id"] = $admin["id"];
-            
-echo "<h1>password_verify es TRUE</h1>";
-
             header("Location: dashboard.php");
             exit;
 
@@ -74,7 +53,6 @@ echo "<h1>password_verify es TRUE</h1>";
 <meta charset="UTF-8">
 <title>Admin Login | Fidelitipon</title>
 <link rel="stylesheet" href="admin.css">
-
 <style>
 body {
     background: #f0f0f0;
@@ -131,14 +109,6 @@ h2 {
     border-radius: 10px;
     text-align: center;
     margin-bottom: 15px;
-}
-
-a {
-    color: #2980b9;
-    text-decoration:none;
-}
-a:hover {
-    text-decoration:underline;
 }
 </style>
 </head>
