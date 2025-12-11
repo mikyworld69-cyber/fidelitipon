@@ -5,32 +5,20 @@ echo "<h2>BASE DE DATOS ACTUAL:</h2>";
 $r = $conn->query("SELECT DATABASE() AS db");
 echo "👉 BD activa: <b>" . $r->fetch_assoc()["db"] . "</b><br><br>";
 
-echo "<h2>TABLAS QUE VE RENDER:</h2>";
-$tables = $conn->query("SHOW TABLES;");
-while ($t = $tables->fetch_array()) {
-    echo "- " . $t[0] . "<br>";
-}
+echo "<h2>CONSULTA REAL:</h2>";
+$result = $conn->query("SELECT * FROM admins WHERE id=1");
+$row = $result->fetch_assoc();
 
-echo "<hr>";
-
-echo "<h2>CONTENIDO DE LA TABLA admins:</h2>";
-$check = $conn->query("SELECT id, usuario, email, password FROM admins");
-while ($row = $check->fetch_assoc()) {
-    echo "<pre>";
-    print_r($row);
-    echo "</pre>";
-}
+echo "<pre>";
+print_r($row);
+echo "</pre>";
 
 echo "<h2>HASH EXACTO (con longitud):</h2>";
 $hash = $row["password"];
-echo "<pre>";
-echo "HASH: [" . $hash . "]\n";
-echo "LONGITUD: " . strlen($hash) . "\n";
+echo "HASH: [" . $hash . "]<br>";
+echo "LONGITUD: " . strlen($hash) . "<br><br>";
 
+echo "<h3>CARACTERES ASCII:</h3>";
 for ($i = 0; $i < strlen($hash); $i++) {
-    echo $i . " → " . ord($hash[$i]) . "\n";
+    echo $i . " → " . ord($hash[$i]) . "<br>";
 }
-echo "</pre>";
-
-
-echo "<hr><h2>FIN TEST</h2>";
