@@ -1,22 +1,22 @@
 <?php
-// ACTIVAR ERRORES
+// ACTIVAR ERRORES (QUITA ESTO EN PRODUCCIÓN)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// SIEMPRE INICIAR SESIÓN ANTES DE CUALQUIER OUTPUT
+// SIEMPRE INICIAR LA SESIÓN ANTES DE CUALQUIER ECHO
 session_start();
 
-// Debug inicial
+// DEBUG INICIAL
 echo "DEBUG 1 — login.php cargado<br>";
 flush();
 
-// Cargar la base de datos (ruta correcta según tu estructura)
+// Cargar DB (ruta correcta para tu estructura)
 require_once __DIR__ . '/../../config/db.php';
 
 $mensaje_error = "";
 
-// Procesar login
+// PROCESAR LOGIN
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     echo "DEBUG 2 — Se ha enviado POST<br>";
@@ -58,15 +58,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flush();
 
             if (password_verify($password, $password_hash)) {
+
                 echo "DEBUG 8 — password_verify OK<br>";
                 flush();
 
+                // Guardamos la sesión
                 $_SESSION['user_id'] = $user_id;
 
                 echo "DEBUG 9 — Redirigiendo al panel<br>";
                 flush();
 
-                header("Location: panel_usuario.php");
+                // Redirección que NO produce errores de headers
+                echo "<script>window.location.href = 'panel_usuario.php';</script>";
                 exit;
 
             } else {
