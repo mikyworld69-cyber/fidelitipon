@@ -7,11 +7,12 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
-// Obtener cupones
-$sql = $conn->query("
-    SELECT c.id, c.codigo, c.titulo, c.estado, c.fecha_caducidad,
-           u.nombre AS usuario_nombre,
-           com.nombre AS comercio_nombre
+// Obtener todos los cupones
+$cupones = $conn->query("
+    SELECT 
+        c.id, c.codigo, c.titulo, c.estado, c.fecha_caducidad,
+        u.nombre AS usuario_nombre,
+        com.nombre AS comercio_nombre
     FROM cupones c
     LEFT JOIN usuarios u ON u.id = c.usuario_id
     LEFT JOIN comercios com ON com.id = c.comercio_id
@@ -23,10 +24,14 @@ $sql = $conn->query("
 
 <h1>Cupones</h1>
 
-<div style="text-align:right; margin-bottom:20px;">
-    <a href="nuevo_cupon.php" class="btn btn-success">
-        ➕ Crear Cupón
-    </a>
+<?php if (isset($_GET["deleted"])): ?>
+    <div class="card" style="background:#e74c3c;color:white;padding:10px;border-radius:10px;margin-bottom:15px;">
+        ✔ Cupón eliminado correctamente
+    </div>
+<?php endif; ?>
+
+<div style="text-align:right;">
+    <a href="nuevo_cupon.php" class="btn btn-success">➕ Crear Cupón</a>
 </div>
 
 <div class="card">
@@ -42,7 +47,7 @@ $sql = $conn->query("
         <th>Acciones</th>
     </tr>
 
-    <?php while ($c = $sql->fetch_assoc()): ?>
+    <?php while ($c = $cupones->fetch_assoc()): ?>
     <tr>
         <td><?= $c["id"] ?></td>
         <td><?= $c["codigo"] ?></td>
@@ -50,12 +55,17 @@ $sql = $conn->query("
         <td><?= $c["usuario_nombre"] ?: "—" ?></td>
         <td><?= $c["comercio_nombre"] ?></td>
         <td><?= strtoupper($c["estado"]) ?></td>
-        <td><?= $c["fecha_caducidad"] ? date("d/m/Y", strtotime($c["fecha_caducidad"])) : "—" ?></td>
+        <td>
+            <?= $c["fecha_caducidad"] 
+                ? date("d/m/Y H:i", strtotime($c["fecha_caducidad"])) 
+                : "—" 
+            ?>
+        </td>
 
         <td>
             <a class="btn btn-small" href="ver_cupon_admin.php?id=<?= $c['id'] ?>">👁 Ver</a>
             <a class="btn btn-small" href="editar_cupon.php?id=<?= $c['id'] ?>">✏ Editar</a>
-            <a class="btn btn-small btn-danger" 
+            <a class="btn btn-small btn-danger"
                href="eliminar_cupon.php?id=<?= $c['id'] ?>"
                onclick="return confirm('¿Seguro que deseas eliminar este cupón?');">
                ❌
