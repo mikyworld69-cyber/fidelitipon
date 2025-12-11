@@ -2,7 +2,6 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
@@ -14,16 +13,18 @@ $color_msg = "";
 // ====================================================
 // VALIDACIÓN MANUAL POR CÓDIGO
 // ====================================================
-if (isset($_POST["codigo_manual"])) {
+if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST["codigo_manual"])) {
 
     $codigo = trim($_POST["codigo_manual"]);
 
     if ($codigo !== "") {
 
+        // Obtener datos del cupón
         $sql = $conn->prepare("
             SELECT c.*, 
-                u.nombre AS usuario_nombre, u.telefono AS usuario_telefono,
-                com.nombre AS comercio_nombre
+                   u.nombre AS usuario_nombre, 
+                   u.telefono AS usuario_telefono,
+                   com.nombre AS comercio_nombre
             FROM cupones c
             LEFT JOIN usuarios u ON u.id = c.usuario_id
             LEFT JOIN comercios com ON com.id = c.comercio_id
@@ -34,152 +35,123 @@ if (isset($_POST["codigo_manual"])) {
         $cup = $sql->get_result()->fetch_assoc();
 
         if (!$cup) {
-            $mensaje = "Cupón no encontrado.";
+            $mensaje = "❌ Cupón no encontrado.";
             $color_msg = "#c0392b";
+
         } else {
 
-            // Si el cupón ya está usado
-            if ($cup["estado"] === "usado") {
-                $mensaje = "Este cupón YA fue validado anteriormente.";
+            // 1️⃣ Validar caducidad
+            if (!empty($cup["fecha_caducidad"]) && strtotime($cup["fecha_caducidad"]) < time()) {
+                $mensaje = "⛔ Este cupón está CADUCADO.";
                 $color_msg = "#c0392b";
-            } 
-            // Si está caducado
-            else if ($cup["estado"] === "caducado") {
-                $mensaje = "Este cupón está CADUCADO.";
-                $color_msg = "#c0392b";
-            } 
-            // Cupón válido ➜ lo marcamos como usado
-            else {
 
-                $up = $conn->prepare("UPDATE cupones SET estado='usado' WHERE id=?");
-                $up->bind_param("i", $cup["id"]);
-                $up->execute();
+            } else {
 
-                // Registrar validación
-                $reg = $conn->prepare("
-                    INSERT INTO validaciones (cupon_id, fecha_validacion)
-                    VALUES (?, NOW())
+                $cup_id = $cup["id"];
+
+                // 2️⃣ Contar casillas usadas
+                $q1 = $conn->prepare("
+                    SELECT COUNT(*) AS usadas
+                    FROM cupon_casillas
+                    WHERE cupon_id = ? AND estado = 1
                 ");
-                $reg->bind_param("i", $cup["id"]);
-                $reg->execute();
+                $q1->bind_param("i", $cup_id);
+                $q1->execute();
+                $usadas = $q1->get_result()->fetch_assoc()["usadas"];
 
-                $mensaje = "Cupón VALIDADO con éxito ✔️";
-                $color_msg = "#27ae60";
+                // Cupón completo → no validar más
+                if ($usadas >= $cup["total_casillas"]) {
+                    $mensaje = "🏆 Este cupón YA ESTÁ COMPLETADO.";
+                    $color_msg = "#27ae60";
+
+                    // asegurar marcado final
+                    $conn->query("UPDATE cupones SET estado='usado' WHERE id=$cup_id");
+
+                } else {
+
+                    // 3️⃣ Buscar primera casilla libre
+                    $q2 = $conn->prepare("
+                        SELECT id, numero_casilla
+                        FROM cupon_casillas
+                        WHERE cupon_id = ? AND estado = 0
+                        ORDER BY numero_casilla ASC
+                        LIMIT 1
+                    ");
+                    $q2->bind_param("i", $cup_id);
+                    $q2->execute();
+                    $cas = $q2->get_result()->fetch_assoc();
+
+                    if (!$cas) {
+                        $mensaje = "🏆 Cupón completado.";
+                        $color_msg = "#27ae60";
+
+                        $conn->query("UPDATE cupones SET estado='usado' WHERE id=$cup_id");
+
+                    } else {
+
+                        // 4️⃣ Marcar casilla
+                        $now = date("Y-m-d H:i:s");
+                        $upd = $conn->prepare("
+                            UPDATE cupon_casillas
+                            SET estado = 1, fecha_marcado = ?
+                            WHERE id = ?
+                        ");
+                        $upd->bind_param("si", $now, $cas["id"]);
+                        $upd->execute();
+
+                        // 5️⃣ Registrar validación
+                        $reg = $conn->prepare("
+                            INSERT INTO validaciones (cupon_id, comercio_id, fecha_validacion, metodo)
+                            VALUES (?, ?, ?, 'ADMIN')
+                        ");
+                        $reg->bind_param("iis", $cup_id, $cup["comercio_id"], $now);
+                        $reg->execute();
+
+                        // Estado tras marcar
+                        $nuevasUsadas = $usadas + 1;
+                        $faltan = $cup["total_casillas"] - $nuevasUsadas;
+
+                        // 6️⃣ Si se completó
+                        if ($faltan == 0) {
+                            $conn->query("UPDATE cupones SET estado='usado' WHERE id=$cup_id");
+
+                            $mensaje = "🏆 Casilla {$cas['numero_casilla']} marcada. ¡Cupón COMPLETADO! 🎉";
+                            $color_msg = "#27ae60";
+
+                        } else {
+                            $mensaje = "✔️ Casilla {$cas['numero_casilla']} marcada con éxito. Faltan $faltan casillas.";
+                            $color_msg = "#27ae60";
+                        }
+                    }
+                }
             }
         }
     }
 }
+
+include "_header.php";
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Validar Cupón | Fidelitipon Admin</title>
-<link rel="stylesheet" href="admin.css">
 
-<style>
-#qr-reader {
-    width: 100%;
-    max-width: 420px;
-    margin: auto;
-}
-.msg-box {
-    padding: 15px;
-    color: white;
-    border-radius: 10px;
-    font-size: 18px;
-    margin-bottom: 20px;
-    text-align: center;
-}
-</style>
+<h1>Validación de Cupones</h1>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+<div class="card">
 
-</head>
-<body>
-
-<!-- SIDEBAR -->
-<div class="sidebar">
-    <h2>Fidelitipon</h2>
-
-    <a href="dashboard.php">📊 Dashboard</a>
-    <a href="usuarios.php">👤 Usuarios</a>
-    <a href="comercios.php">🏪 Comercios</a>
-    <a href="cupones.php">🎟 Cupones</a>
-    <a href="validar.php" class="active">📷 Validar</a>
-    <a href="reportes.php">📈 Reportes</a>
-    <a href="notificaciones.php">🔔 Notificaciones</a>
-    <a href="logout.php">🚪 Salir</a>
-</div>
-
-<!-- CONTENIDO -->
-<div class="content">
-
-    <h1>Validar Cupón</h1>
-    <p>Escanea un código QR o introduce el código manualmente.</p>
-
-    <?php if ($mensaje): ?>
-        <div class="msg-box" style="background: <?= $color_msg ?>;">
-            <?= $mensaje ?>
-        </div>
-    <?php endif; ?>
-
-    <!-- LECTOR QR -->
-    <div class="card">
-        <h3>Lector QR</h3>
-        <div id="qr-reader"></div>
+<?php if ($mensaje): ?>
+    <div class="msg-box" style="background: <?= $color_msg ?>; 
+        padding:15px; color:white; border-radius:10px; font-size:18px; margin-bottom:20px; text-align:center;">
+        <?= $mensaje ?>
     </div>
+<?php endif; ?>
 
-    <!-- FORM VALIDACIÓN MANUAL -->
-    <div class="card">
+<h3>Validación Manual</h3>
 
-        <h3>Validación Manual</h3>
-
-        <form method="POST">
-            <input type="text" name="codigo_manual" placeholder="Introduce el código del cupón">
-            <button class="btn btn-success" type="submit">
-                Validar Cupón
-            </button>
-        </form>
-
-    </div>
+<form method="POST">
+    <input type="text" name="codigo_manual" placeholder="Introduce el código del cupón" required>
+    <button class="btn btn-success" type="submit">
+        Validar Cupón
+    </button>
+</form>
 
 </div>
 
-<!-- SCRIPT QR -->
-<script>
-function onScanSuccess(decodedText) {
-
-    // Enviar código escaneado automáticamente al backend
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "validar.php";
-
-    const input = document.createElement("input");
-    input.type = "hidden";
-    input.name = "codigo_manual";
-    input.value = decodedText;
-
-    form.appendChild(input);
-    document.body.appendChild(form);
-    form.submit();
-}
-
-const html5QrCode = new Html5Qrcode("qr-reader");
-
-Html5Qrcode.getCameras().then(devices => {
-    if (devices.length > 0) {
-        html5QrCode.start(
-            devices[0].id,
-            {
-                fps: 10,
-                qrbox: 250
-            },
-            onScanSuccess
-        );
-    }
-});
-</script>
-
-</body>
-</html>
+<?php include "_footer.php"; ?>
