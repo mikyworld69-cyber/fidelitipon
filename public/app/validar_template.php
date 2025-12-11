@@ -3,78 +3,165 @@
 <head>
 <meta charset="UTF-8">
 <title>Validación de Cupón</title>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
 body {
-    font-family: Arial, sans-serif;
-    text-align: center;
-    padding: 40px;
     margin: 0;
+    padding: 0;
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
 }
 
-.box {
-    max-width: 400px;
-    margin: auto;
-    padding: 30px;
-    border-radius: 18px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-    color: white;
+.card {
+    width: 90%;
+    max-width: 420px;
+    background: white;
+    border-radius: 20px;
+    padding: 35px 25px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.20);
+    animation: fadeIn 0.7s ease, scaleIn 0.7s ease;
 }
 
-.ok {
-    background: #2ecc71;
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
 }
 
-.error, .caducado {
-    background: #e74c3c;
+@keyframes scaleIn {
+    from { transform: scale(0.8); }
+    to   { transform: scale(1); }
 }
 
-.completo, .completado {
-    background: #f1c40f;
-    color: #333;
-    font-weight: bold;
-}
-
-h1 {
+.icon {
+    font-size: 80px;
     margin-bottom: 10px;
+    animation: pop 0.5s ease;
+}
+
+@keyframes pop {
+    0%   { transform: scale(0.6); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.title {
     font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 5px;
 }
 
-p {
+.subtitle {
     font-size: 18px;
-    margin-bottom: 10px;
+    color: #555;
+    margin-bottom: 20px;
 }
 
 .casilla-num {
-    font-size: 50px;
+    font-size: 70px;
     font-weight: bold;
+    margin: 15px 0;
+}
+
+.btn {
+    display: inline-block;
+    margin-top: 25px;
+    padding: 12px 20px;
+    background: #2980b9;
+    color: white;
+    text-decoration: none;
+    border-radius: 12px;
+    font-size: 16px;
+}
+
+.btn:hover {
+    background: #1f6fa3;
 }
 
 </style>
+
 </head>
 <body>
 
-<div class="box <?= $status ?>">
+<div class="card">
 
-    <?php if ($status == "error"): ?>
-        <h1>❌ Error</h1>
-        <p><?= $error ?></p>
+    <?php if ($status === "error"): ?>
+        <div class="icon">❌</div>
+        <div class="title">Error</div>
+        <div class="subtitle"><?= $error ?></div>
 
-    <?php elseif ($status == "caducado"): ?>
-        <h1>⛔ Cupón Caducado</h1>
-        <p>No puede validarse.</p>
+    <?php elseif ($status === "caducado"): ?>
+        <div class="icon">⛔</div>
+        <div class="title">Cupón Caducado</div>
+        <div class="subtitle">Este cupón ya no es válido.</div>
 
-    <?php elseif ($status == "completo" || $status == "completado"): ?>
-        <h1>🏆 Cupón Completado</h1>
-        <p>Ya no quedan casillas disponibles.</p>
+    <?php elseif ($status === "completo" || $status === "completado"): ?>
+        <div class="icon">🏆</div>
+        <div class="title">Cupón Completo</div>
+        <div class="subtitle">Ya no quedan casillas disponibles.</div>
 
-    <?php elseif ($status == "ok"): ?>
-        <h1>✔️ Casilla Marcada</h1>
-        <p class="casilla-num"><?= $casillaMarcada ?></p>
-        <p>Faltan <?= $faltan ?> casillas para completar el cupón.</p>
+        <script>
+        setTimeout(() => lanzarConfeti(), 500);
+        </script>
 
+    <?php elseif ($status === "ok"): ?>
+        <div class="icon">✔️</div>
+        <div class="title">Casilla Marcada</div>
+        <div class="casilla-num"><?= $casillaMarcada ?></div>
+        <div class="subtitle">Faltan <?= $faltan ?> para completar el cupón.</div>
+
+        <script>
+        // Vibración del móvil
+        if (navigator.vibrate) navigator.vibrate(200);
+
+        // Sonido
+        const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_7df29c9035.mp3?filename=correct-2-46134.mp3");
+        audio.play();
+        </script>
     <?php endif; ?>
 
+    <a href="/" class="btn">Volver</a>
+
 </div>
+
+
+<!-- Confeti -->
+<script>
+function lanzarConfeti() {
+    const duration = 2 * 1000;
+    const end = Date.now() + duration;
+
+    (function frame() {
+        // Confeti superior
+        confetti({
+            particleCount: 5,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 }
+        });
+
+        // Confeti inferior
+        confetti({
+            particleCount: 5,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 }
+        });
+
+        if (Date.now() < end) {
+            requestAnimationFrame(frame);
+        }
+    })();
+}
+</script>
+
+<!-- Librería de confeti -->
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 </body>
 </html>
