@@ -127,6 +127,10 @@ h2 {
         <input type="password" name="password" class="input" placeholder="Contraseña" required>
         <button class="btn">Entrar</button>
     </form>
+    <p style="margin-top:15px; text-align:center;">
+    <a href="forgot.php">¿Olvidaste tu contraseña?</a>
+</p>
+
 </div>
 
 </body>
