@@ -4,18 +4,6 @@
 // ini_set('display_startup_errors', 1);
 // error_reporting(E_ALL);
 
-echo "DEBUG 1<br>";
-flush();
-
-require_once __DIR__ . '/../../config/db.php';
-echo "DEBUG 2<br>";
-flush();
-
-// resto del código...
-
-
-require_once __DIR__ . '/../../config/db.php';
-
 require_once __DIR__ . '/../../config/db.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -34,6 +22,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (password_verify($password, $password_hash)) {
             session_start();
             $_SESSION['user_id'] = $user_id;
+
+            echo "DEBUG LOGIN OK — REDIRECCIÓN ACTIVADA";
+exit;
+
 
             header("Location: panel_usuario.php");
             exit;
