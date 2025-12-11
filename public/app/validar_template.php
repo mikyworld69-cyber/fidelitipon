@@ -82,13 +82,19 @@ body {
 .btn:hover {
     background: #1f6fa3;
 }
-
 </style>
 
 </head>
 <body>
 
 <div class="card">
+
+    <!-- LOGO DEL COMERCIO -->
+    <?php if (!empty($logo)): ?>
+        <img src="<?= $logo ?>" 
+             alt="Logo Comercio" 
+             style="width:110px; height:110px; object-fit:contain; margin-bottom:20px;">
+    <?php endif; ?>
 
     <?php if ($status === "error"): ?>
         <div class="icon">❌</div>
@@ -102,7 +108,7 @@ body {
 
     <?php elseif ($status === "completo" || $status === "completado"): ?>
         <div class="icon">🏆</div>
-        <div class="title">Cupón Completo</div>
+        <div class="title">Cupón Completado</div>
         <div class="subtitle">Ya no quedan casillas disponibles.</div>
 
         <script>
@@ -112,17 +118,20 @@ body {
     <?php elseif ($status === "ok"): ?>
         <div class="icon">✔️</div>
         <div class="title">Casilla Marcada</div>
+
         <div class="casilla-num"><?= $casillaMarcada ?></div>
+
         <div class="subtitle">Faltan <?= $faltan ?> para completar el cupón.</div>
 
         <script>
-        // Vibración del móvil
-        if (navigator.vibrate) navigator.vibrate(200);
+        // Vibración
+        if (navigator.vibrate) navigator.vibrate(150);
 
-        // Sonido
+        // Sonido "ding"
         const audio = new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_7df29c9035.mp3?filename=correct-2-46134.mp3");
         audio.play();
         </script>
+
     <?php endif; ?>
 
     <a href="/" class="btn">Volver</a>
@@ -137,7 +146,6 @@ function lanzarConfeti() {
     const end = Date.now() + duration;
 
     (function frame() {
-        // Confeti superior
         confetti({
             particleCount: 5,
             angle: 60,
@@ -145,7 +153,6 @@ function lanzarConfeti() {
             origin: { x: 0 }
         });
 
-        // Confeti inferior
         confetti({
             particleCount: 5,
             angle: 120,
@@ -153,14 +160,11 @@ function lanzarConfeti() {
             origin: { x: 1 }
         });
 
-        if (Date.now() < end) {
-            requestAnimationFrame(frame);
-        }
+        if (Date.now() < end) requestAnimationFrame(frame);
     })();
 }
 </script>
 
-<!-- Librería de confeti -->
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 
 </body>
