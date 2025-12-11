@@ -9,7 +9,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if ($telefono === "") {
         $mensaje = "Debes introducir tu número de teléfono.";
     } else {
-        // Comprobar si existe
+
+        // Comprobar si existe el usuario
         $sql = $conn->prepare("SELECT id FROM usuarios WHERE telefono = ?");
         $sql->bind_param("s", $telefono);
         $sql->execute();
@@ -20,21 +21,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $sql->bind_result($id_user);
             $sql->fetch();
 
-            // Generar token
+            // Generar token seguro
             $token = bin2hex(random_bytes(16));
 
-            // Guardar en BD
+            // Guardar token
             $up = $conn->prepare("UPDATE usuarios SET token_recuperacion = ? WHERE id = ?");
             $up->bind_param("si", $token, $id_user);
             $up->execute();
 
-            // ENVIAR por SMS o email (tú eliges)
-            // EJEMPLO SIMPLE — enlace directo:
-            $enlace = "https://tudominio.com/app/restablecer.php?token=$token";
+            // Enlace final (AJUSTADO A reset.php)
+            $enlace = "https://".$_SERVER['HTTP_HOST']."/app/reset.php?token=$token";
 
-            // Aquí puedes integrar tu API SMS o email.
-            // Por ahora solo mostramos mensaje.
-            $mensaje = "Se ha enviado un enlace de recuperación: $enlace";
+            // Aquí iría SMS o email real
+            $mensaje = "Hemos enviado un enlace para restablecer tu contraseña:<br><br>$enlace";
 
         } else {
             $mensaje = "No existe ningún usuario con ese teléfono.";
@@ -44,11 +43,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <title>Recuperar contraseña</title>
 </head>
+
 <body>
 
 <h2>Recuperar contraseña</h2>
