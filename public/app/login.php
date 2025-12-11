@@ -1,25 +1,29 @@
 <?php
-// Debug
+// Iniciar sesión SIEMPRE antes de cualquier salida
+session_start();
+
+// Debug seguro
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-
-echo "DEBUG 1 — login.php cargado<br>";
-flush();
 
 // Cargar DB
 require_once __DIR__ . '/../../config/db.php';
 
-session_start();
+echo "DEBUG 1 — login.php cargado<br>";
+flush();
+
 $mensaje_error = "";
 
+// Procesar login
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
     echo "DEBUG 2 — Se ha enviado POST<br>";
     flush();
 
     $telefono = trim($_POST['telefono'] ?? "");
     $password = trim($_POST['password'] ?? "");
 
-    echo "DEBUG 3 — Telefono: $telefono<br>";
+    echo "DEBUG 3 — Teléfono: $telefono<br>";
     echo "DEBUG 4 — Password length: " . strlen($password) . "<br>";
     flush();
 
@@ -32,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             die("ERROR PREPARE: " . $conn->error);
         }
 
-        echo "DEBUG 5 — Consulta preparada<br>";
+        echo "DEBUG 5 — Prepare OK<br>";
 
         $stmt->bind_param("s", $telefono);
         $stmt->execute();
@@ -53,16 +57,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 flush();
 
                 $_SESSION['user_id'] = $user_id;
+
+                echo "DEBUG 9 — Redirigiendo<br>";
+                flush();
+
                 header("Location: panel_usuario.php");
                 exit;
             } else {
-                echo "DEBUG 9 — password_verify FALLÓ<br>";
+                echo "DEBUG 10 — password_verify FALLÓ<br>";
                 flush();
                 $mensaje_error = "Contraseña incorrecta.";
             }
+
         } else {
             $mensaje_error = "No existe un usuario con ese teléfono.";
         }
+
+        $stmt->close();
     }
 }
 ?>
