@@ -2,22 +2,23 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
+// Verificar sesión admin
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
 }
 
-// OBTENER LISTA DE USUARIOS
+// Obtener usuarios
 $usuarios = $conn->query("SELECT id, nombre, telefono FROM usuarios ORDER BY nombre ASC");
 
-// OBTENER LISTA DE COMERCIOS
+// Obtener comercios
 $comercios = $conn->query("SELECT id, nombre FROM comercios ORDER BY nombre ASC");
 
 $mensaje = "";
 
-// ============================
-// GUARDAR CUPÓN + GENERAR CASILLAS
-// ============================
+// ============================================
+// PROCESAR CREACIÓN DEL CUPÓN
+// ============================================
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $usuario_id      = !empty($_POST["usuario_id"]) ? intval($_POST["usuario_id"]) : null;
@@ -27,17 +28,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $fecha_caducidad = !empty($_POST["fecha_caducidad"]) ? $_POST["fecha_caducidad"] : null;
     $num_casillas    = intval($_POST["num_casillas"]);
 
-    // Código autogenerado (8 chars)
+    // Generar código único
     $codigo = strtoupper(substr(md5(uniqid(rand(), true)), 0, 8));
 
     // Insertar cupón
     $sql = $conn->prepare("
-        INSERT INTO cupones (comercio_id, usuario_id, codigo, titulo, descripcion, fecha_caducidad, total_casillas, casillas_marcadas, estado)
+        INSERT INTO cupones 
+        (comercio_id, usuario_id, codigo, titulo, descripcion, fecha_caducidad, total_casillas, casillas_marcadas, estado)
         VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'activo')
     ");
 
-    $sql->bind_param(
-        "iissssi",
+    $sql->bind_param("iissssi",
         $comercio_id,
         $usuario_id,
         $codigo,
@@ -49,19 +50,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($sql->execute()) {
 
-        $cup_id = $conn->insert_id; // ID del cupón recién creado
+        $cup_id = $conn->insert_id;
 
-        // ============================
+        // ============================================
         // GENERAR CASILLAS AUTOMÁTICAMENTE
-        // ============================
-        $insertCas = $conn->prepare("
+        // ============================================
+        $insertCasilla = $conn->prepare("
             INSERT INTO cupon_casillas (cupon_id, numero_casilla, marcada, estado)
             VALUES (?, ?, 0, 'pendiente')
         ");
 
         for ($i = 1; $i <= $num_casillas; $i++) {
-            $insertCas->bind_param("ii", $cup_id, $i);
-            $insertCas->execute();
+            $insertCasilla->bind_param("ii", $cup_id, $i);
+            $insertCasilla->execute();
         }
 
         header("Location: cupones.php");
@@ -80,7 +81,7 @@ include "_header.php";
 <div class="card">
 
 <?php if ($mensaje): ?>
-    <div class="error" style="background:#e74c3c; padding:12px; color:white; border-radius:10px; margin-bottom:15px;">
+    <div style="background:#e74c3c;padding:12px;color:white;border-radius:10px;margin-bottom:15px;">
         <?= $mensaje ?>
     </div>
 <?php endif; ?>
