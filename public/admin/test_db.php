@@ -21,4 +21,16 @@ while ($row = $check->fetch_assoc()) {
     echo "</pre>";
 }
 
+echo "<h2>HASH EXACTO (con longitud):</h2>";
+$hash = $row["password"];
+echo "<pre>";
+echo "HASH: [" . $hash . "]\n";
+echo "LONGITUD: " . strlen($hash) . "\n";
+
+for ($i = 0; $i < strlen($hash); $i++) {
+    echo $i . " → " . ord($hash[$i]) . "\n";
+}
+echo "</pre>";
+
+
 echo "<hr><h2>FIN TEST</h2>";
