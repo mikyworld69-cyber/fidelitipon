@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $_SESSION['user_id'] = $user_id;
 
-                header("Location: ../usuario/panel_usuario.php");
+                header("Location: panel_usuario.php");
                 exit;
 
             } else {
