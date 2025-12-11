@@ -137,8 +137,15 @@ body {
 </div>
 
 <script>
+// Registro del Service Worker principal (PWA + Notificaciones)
 if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("/sw-pwa.js");
+    navigator.serviceWorker.register("/sw-pwa.js")
+        .then(reg => {
+            console.log("Service Worker registrado:", reg);
+        })
+        .catch(err => {
+            console.error("Error registrando SW:", err);
+        });
 }
 </script>
 <script src="/push/notificaciones.js"></script>
