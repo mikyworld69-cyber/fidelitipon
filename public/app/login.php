@@ -4,6 +4,16 @@
 // ini_set('display_startup_errors', 1);
 // error_reporting(E_ALL);
 
+echo "DEBUG 1<br>";
+flush();
+
+require_once __DIR__ . '/../../config/db.php';
+echo "DEBUG 2<br>";
+flush();
+
+// resto del código...
+
+
 require_once __DIR__ . '/../../config/db.php';
 
 require_once __DIR__ . '/../../config/db.php';
