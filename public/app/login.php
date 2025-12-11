@@ -1,17 +1,13 @@
 <?php
-// ACTIVAR ERRORES (QUITA ESTO EN PRODUCCIÓN)
+// ACTIVAR ERRORES EN DESARROLLO
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// SIEMPRE INICIAR LA SESIÓN ANTES DE CUALQUIER ECHO
+// SIEMPRE iniciar sesión ANTES DE CUALQUIER SALIDA
 session_start();
 
-// DEBUG INICIAL
-echo "DEBUG 1 — login.php cargado<br>";
-flush();
-
-// Cargar DB (ruta correcta para tu estructura)
+// Cargar la base de datos
 require_once __DIR__ . '/../../config/db.php';
 
 $mensaje_error = "";
@@ -19,15 +15,8 @@ $mensaje_error = "";
 // PROCESAR LOGIN
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    echo "DEBUG 2 — Se ha enviado POST<br>";
-    flush();
-
     $telefono = trim($_POST['telefono'] ?? "");
     $password = trim($_POST['password'] ?? "");
-
-    echo "DEBUG 3 — Teléfono recibido: $telefono<br>";
-    echo "DEBUG 4 — Password length: " . strlen($password) . "<br>";
-    flush();
 
     if ($telefono === "" || $password === "") {
         $mensaje_error = "Debes introducir teléfono y contraseña.";
@@ -35,52 +24,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Consulta SQL
         $stmt = $conn->prepare("SELECT id, password FROM usuarios WHERE telefono = ?");
-        if (!$stmt) {
-            die("ERROR PREPARE: " . $conn->error);
-        }
-
-        echo "DEBUG 5 — Prepare OK<br>";
-        flush();
-
         $stmt->bind_param("s", $telefono);
         $stmt->execute();
         $stmt->store_result();
-
-        echo "DEBUG 6 — Num rows = {$stmt->num_rows}<br>";
-        flush();
 
         if ($stmt->num_rows === 1) {
 
             $stmt->bind_result($user_id, $password_hash);
             $stmt->fetch();
 
-            echo "DEBUG 7 — Hash encontrado: $password_hash<br>";
-            flush();
-
             if (password_verify($password, $password_hash)) {
 
-                echo "DEBUG 8 — password_verify OK<br>";
-                flush();
-
-                // Guardamos la sesión
+                // Guardar sesión
                 $_SESSION['user_id'] = $user_id;
 
-                echo "DEBUG 9 — Redirigiendo al panel<br>";
-                flush();
-
-                // Redirección que NO produce errores de headers
-                echo "<script>window.location.href = 'panel_usuario.php';</script>";
+                // Redirigir al panel
+                header("Location: panel_usuario.php");
                 exit;
 
             } else {
-                echo "DEBUG 10 — password_verify FALLÓ<br>";
-                flush();
                 $mensaje_error = "Contraseña incorrecta.";
             }
 
         } else {
-            echo "DEBUG 11 — Usuario no encontrado<br>";
-            flush();
             $mensaje_error = "No existe un usuario con ese teléfono.";
         }
 
@@ -103,7 +69,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <p style="color:red;"><?= $mensaje_error ?></p>
 <?php endif; ?>
 
-<!-- FORMULARIO CORRECTO -->
 <form method="POST" action="login.php">
     <label>Teléfono:</label><br>
     <input type="text" name="telefono" required><br><br>
