@@ -10,9 +10,9 @@ if (!isset($_SESSION["admin_id"])) {
 $mensaje = "";
 $color = "#e74c3c";
 
-// ==============================
+// =====================================
 // PROCESAR FORMULARIO
-// ==============================
+// =====================================
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $nombre   = trim($_POST["nombre"]);
@@ -22,34 +22,44 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $mensaje = "❌ El nombre del comercio es obligatorio.";
     } else {
 
-        // Procesar subida de logo si existe
+        // -------------------------
+        // SUBIR LOGO (si existe)
+        // -------------------------
         $logoNombre = null;
 
         if (!empty($_FILES["logo"]["name"])) {
 
-            // Carpeta destino
-            $uploadsDir = __DIR__ . "/../../uploads/comercios/";
+            // Carpeta correcta en Render
+            $uploadsDir = __DIR__ . "/../../public/uploads/comercios/";
+
+            // Crear carpeta si no existe
             if (!is_dir($uploadsDir)) {
                 mkdir($uploadsDir, 0775, true);
             }
 
+            // Extensión
             $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
 
-            // Permitir solo imágenes
+            // Validar formato
             if (!in_array($ext, ["jpg", "jpeg", "png", "webp"])) {
-                $mensaje = "❌ Formato de imagen no válido (solo JPG, PNG, WEBP).";
+                $mensaje = "❌ Formato no válido. Solo JPG, PNG, WEBP.";
             } else {
 
+                // Nombre seguro y único
                 $logoNombre = "comercio_" . time() . "_" . rand(1000,9999) . "." . $ext;
 
-                move_uploaded_file(
-                    $_FILES["logo"]["tmp_name"],
-                    $uploadsDir . $logoNombre
-                );
+                // Ruta final
+                $destino = $uploadsDir . $logoNombre;
+
+                if (!move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
+                    $mensaje = "❌ Error moviendo archivo. Render no permite escribir fuera de /public.";
+                }
             }
         }
 
-        // Insertar comercio
+        // -------------------------
+        // GUARDAR EN BASE DE DATOS
+        // -------------------------
         $sql = $conn->prepare("
             INSERT INTO comercios (nombre, telefono, logo)
             VALUES (?, ?, ?)
