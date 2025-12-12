@@ -16,7 +16,7 @@ if (!isset($_GET["id"])) {
 
 $cup_id = intval($_GET["id"]);
 
-// Obtener cupón del usuario
+// Obtener datos del cupón
 $sql = $conn->prepare("
     SELECT id, titulo, descripcion, estado, fecha_caducidad, qr_path
     FROM cupones
@@ -41,10 +41,8 @@ $sqlCas->bind_param("i", $cup_id);
 $sqlCas->execute();
 $casillas = $sqlCas->get_result();
 
-// Estado visual
 $estado = strtoupper($cupon["estado"]);
 $badgeClass = "badge-activo";
-
 if ($estado === "USADO") $badgeClass = "badge-usado";
 if ($estado === "CADUCADO") $badgeClass = "badge-caducado";
 
@@ -63,7 +61,6 @@ body {
     padding-bottom: 90px;
     font-family: 'Roboto', sans-serif;
 }
-
 .cupon-box {
     background: white;
     margin: 15px;
@@ -71,21 +68,17 @@ body {
     border-radius: 16px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.08);
 }
-
 .cupon-title {
     font-size: 22px;
     font-weight: bold;
 }
-
 .casillas-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 12px;
     margin-top: 20px;
 }
-
 .casilla {
-    width: 100%;
     aspect-ratio: 1;
     border-radius: 12px;
     display: flex;
@@ -95,22 +88,16 @@ body {
     color: white;
     font-size: 18px;
 }
-
-.casilla-marcada {
-    background: #27ae60;
-}
-
-.casilla-pendiente {
-    background: #bdc3c7;
-}
+.casilla-marcada { background: #27ae60; }
+.casilla-pendiente { background: #bdc3c7; }
 
 .qr-box {
     background: #fff;
-    text-align: center;
     padding: 15px;
-    border-radius: 14px;
     margin-top: 25px;
+    border-radius: 14px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    text-align: center;
 }
 
 .bottom-nav {
@@ -135,9 +122,7 @@ body {
     <div class="cupon-title"><?= htmlspecialchars($cupon["titulo"]) ?></div>
     <p><?= nl2br(htmlspecialchars($cupon["descripcion"])) ?></p>
 
-    <div style="margin-bottom:10px;">
-        <strong>Caduca:</strong> <?= date("d/m/Y", strtotime($cupon["fecha_caducidad"])) ?>
-    </div>
+    <div><strong>Caduca:</strong> <?= date("d/m/Y", strtotime($cupon["fecha_caducidad"])) ?></div>
 
     <span class="badge <?= $badgeClass ?>"><?= $estado ?></span>
 
@@ -145,7 +130,7 @@ body {
 
     <div class="casillas-grid">
         <?php while ($c = $casillas->fetch_assoc()): ?>
-            <div class="casilla <?= $c["marcada"] ? 'casilla-marcada' : 'casilla-pendiente' ?>">
+            <div class="casilla <?= $c["marcada"] ? "casilla-marcada" : "casilla-pendiente" ?>">
                 <?= $c["numero_casilla"] ?>
             </div>
         <?php endwhile; ?>
@@ -153,9 +138,9 @@ body {
 
     <?php if (!empty($cupon["qr_path"])): ?>
     <div class="qr-box">
-        <h3>Tu Código QR</h3>
-        <img src="/<?= $cupon["qr_path"] ?>" width="220" style="margin-top:10px;">
-        <p style="font-size:13px;color:#666;">Muéstralo en el comercio para marcar tu casilla</p>
+        <h3>Código QR</h3>
+        <img src="/<?= $cupon["qr_path"] ?>" width="220" />
+        <p style="font-size:13px;color:#666;">Muéstralo en el comercio para validar tu casilla</p>
     </div>
     <?php endif; ?>
 
