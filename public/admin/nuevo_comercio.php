@@ -7,8 +7,8 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
-// ACTIVAR DEBUG SOLO SI SE QUIERE VER
-$debug = true;  // <-- pon en false cuando acabemos
+// Cambiar a false cuando esté funcionando
+$debug = true;
 
 $mensaje = "";
 $color = "#e74c3c";
@@ -32,9 +32,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $mensaje = "❌ El nombre del comercio es obligatorio.";
     } else {
 
-        // -------------------------
-        // SUBIR LOGO
-        // -------------------------
         if (isset($_FILES["logo"]) && $_FILES["logo"]["error"] === UPLOAD_ERR_OK) {
 
             $uploadsDir = $_SERVER['DOCUMENT_ROOT'] . "/uploads/comercios/";
@@ -53,15 +50,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 $destino = $uploadsDir . $logoNombre;
 
                 if (!move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
-                    $mensaje = "❌ Error moviendo archivo.";
+                    $mensaje = "❌ Error moviendo archivo al destino.";
                     $logoNombre = null;
                 }
             }
         }
 
-        // -------------------------
-        // GUARDAR EN BD
-        -------------------------
         if ($mensaje === "") {
 
             $sql = $conn->prepare("
@@ -73,7 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             if ($sql->execute()) {
 
                 if ($debug) {
-                    echo "<h2 style='color:yellow;'>DEBUG ACTIVO: No hacemos redirect</h2>";
+                    echo "<h2 style='color:yellow;'>DEBUG ACTIVADO: NO SE REDIRIGE</h2>";
                 } else {
                     header("Location: comercios.php?created=1");
                     exit;
