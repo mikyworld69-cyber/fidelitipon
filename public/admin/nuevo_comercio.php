@@ -7,44 +7,38 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
+// ACTIVAR DEBUG SOLO SI SE QUIERE VER
+$debug = true;  // <-- pon en false cuando acabemos
+
 $mensaje = "";
 $color = "#e74c3c";
+$logoNombre = null;
 
-// =====================================================
-// DEBUG: PARA SABER EXACTAMENTE QUÉ LLEGA DESDE EL FORM
-// =====================================================
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    echo "<pre style='background:#000;color:#0f0;padding:20px;font-size:14px;white-space:pre-wrap;'>";
-    echo "==== DEBUG POST ====\n";
-    print_r($_POST);
-    echo "\n==== DEBUG FILES ====\n";
-    print_r($_FILES);
-    echo "</pre>";
-}
-
-// =====================================================
-// PROCESAR FORMULARIO
-// =====================================================
-if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    if ($debug) {
+        echo "<pre style='background:#000;color:#0f0;padding:20px;font-size:14px;white-space:pre-wrap;'>";
+        echo "==== DEBUG POST ====\n";
+        print_r($_POST);
+        echo "\n==== DEBUG FILES ====\n";
+        print_r($_FILES);
+        echo "</pre>";
+    }
 
     $nombre   = trim($_POST["nombre"]);
     $telefono = trim($_POST["telefono"]);
-    $logoNombre = null;
 
     if ($nombre === "") {
         $mensaje = "❌ El nombre del comercio es obligatorio.";
     } else {
 
-        // -------------------------------------
-        // SUBIR LOGO (si se ha enviado)
-        // -------------------------------------
+        // -------------------------
+        // SUBIR LOGO
+        // -------------------------
         if (isset($_FILES["logo"]) && $_FILES["logo"]["error"] === UPLOAD_ERR_OK) {
 
-            // Carpeta correcta de Render
             $uploadsDir = $_SERVER['DOCUMENT_ROOT'] . "/uploads/comercios/";
 
-            // Crear carpeta si no existe
             if (!is_dir($uploadsDir)) {
                 mkdir($uploadsDir, 0775, true);
             }
@@ -52,25 +46,24 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
 
             if (!in_array($ext, ["jpg", "jpeg", "png", "webp"])) {
-                $mensaje = "❌ Formato de imagen no válido. Solo JPG, PNG, WEBP.";
+                $mensaje = "❌ Formato inválido. Usa JPG, PNG o WEBP.";
             } else {
 
-                // Nombre único
                 $logoNombre = "comercio_" . time() . "_" . rand(1000,9999) . "." . $ext;
-
                 $destino = $uploadsDir . $logoNombre;
 
-                // Intentar mover el archivo temporal
                 if (!move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
-                    $mensaje = "❌ ERROR moviendo archivo. Ruta usada:<br>$destino";
+                    $mensaje = "❌ Error moviendo archivo.";
+                    $logoNombre = null;
                 }
             }
         }
 
-        // -------------------------------------
-        // GUARDAR COMERCIO SI NO HAY ERRORES
-        // -------------------------------------
+        // -------------------------
+        // GUARDAR EN BD
+        -------------------------
         if ($mensaje === "") {
+
             $sql = $conn->prepare("
                 INSERT INTO comercios (nombre, telefono, logo)
                 VALUES (?, ?, ?)
@@ -78,10 +71,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $sql->bind_param("sss", $nombre, $telefono, $logoNombre);
 
             if ($sql->execute()) {
-                header("Location: comercios.php?created=1");
-                exit;
+
+                if ($debug) {
+                    echo "<h2 style='color:yellow;'>DEBUG ACTIVO: No hacemos redirect</h2>";
+                } else {
+                    header("Location: comercios.php?created=1");
+                    exit;
+                }
+
             } else {
-                $mensaje = "❌ Error guardando el comercio en la base de datos.";
+                $mensaje = "❌ Error guardando el comercio.";
             }
         }
     }
