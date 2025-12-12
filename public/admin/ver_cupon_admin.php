@@ -14,9 +14,11 @@ if (!isset($_GET["id"])) {
 
 $cup_id = intval($_GET["id"]);
 
-// Obtener datos del cupón
+// Datos del cupón
 $sql = $conn->prepare("
-    SELECT c.*, u.nombre AS usuario_nombre, com.nombre AS comercio_nombre
+    SELECT c.*, 
+           u.nombre AS usuario_nombre,
+           com.nombre AS comercio_nombre
     FROM cupones c
     LEFT JOIN usuarios u ON u.id = c.usuario_id
     LEFT JOIN comercios com ON com.id = c.comercio_id
@@ -28,7 +30,7 @@ $cup = $sql->get_result()->fetch_assoc();
 
 if (!$cup) die("Cupón no encontrado");
 
-// Obtener casillas
+// Casillas
 $sqlCas = $conn->prepare("
     SELECT numero_casilla, marcada, fecha_marcada
     FROM cupon_casillas
@@ -39,7 +41,7 @@ $sqlCas->bind_param("i", $cup_id);
 $sqlCas->execute();
 $casillas = $sqlCas->get_result();
 
-// Obtener validaciones
+// Validaciones
 $sqlVal = $conn->prepare("
     SELECT casilla, fecha_validacion, metodo
     FROM validaciones
@@ -60,21 +62,25 @@ include "_header.php";
     <p><strong>Usuario:</strong> <?= htmlspecialchars($cup["usuario_nombre"] ?: "—") ?></p>
     <p><strong>Comercio:</strong> <?= htmlspecialchars($cup["comercio_nombre"] ?: "—") ?></p>
     <p><strong>Estado:</strong> <?= strtoupper($cup["estado"]) ?></p>
-    <p><strong>Caduca:</strong> <?= date("d/m/Y", strtotime($cup["fecha_caducidad"])) ?></p>
+    <p><strong>Caducidad:</strong> <?= date("d/m/Y", strtotime($cup["fecha_caducidad"])) ?></p>
 </div>
 
 <?php if ($cup["qr_path"]): ?>
 <div class="card" style="text-align:center;">
     <h3>Código QR</h3>
-    <img src="/<?= $cup["qr_path"] ?>" width="220">
-    <p>Código: <strong><?= $cup["codigo"] ?></strong></p>
+    <img src="/<?= $cup["qr_path"] ?>" width="240" />
+    <p><strong>Código:</strong> <?= $cup["codigo"] ?></p>
 </div>
 <?php endif; ?>
 
 <div class="card">
     <h3>Casillas</h3>
     <table>
-        <tr><th>#</th><th>Marcada</th><th>Fecha</th></tr>
+        <tr>
+            <th>Casilla</th>
+            <th>Marcada</th>
+            <th>Fecha</th>
+        </tr>
 
         <?php while ($c = $casillas->fetch_assoc()): ?>
         <tr>
@@ -90,10 +96,14 @@ include "_header.php";
     <h3>Validaciones Realizadas</h3>
 
     <?php if ($validaciones->num_rows === 0): ?>
-        <p>No hay validaciones aún.</p>
+        <p>No hay validaciones todavía.</p>
     <?php else: ?>
         <table>
-            <tr><th>Casilla</th><th>Fecha</th><th>Método</th></tr>
+            <tr>
+                <th>Casilla</th>
+                <th>Fecha</th>
+                <th>Método</th>
+            </tr>
 
             <?php while ($v = $validaciones->fetch_assoc()): ?>
             <tr>
@@ -102,7 +112,6 @@ include "_header.php";
                 <td><?= $v["metodo"] ?></td>
             </tr>
             <?php endwhile; ?>
-
         </table>
     <?php endif; ?>
 </div>
