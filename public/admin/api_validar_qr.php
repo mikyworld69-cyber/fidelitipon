@@ -3,11 +3,17 @@ session_start();
 header("Content-Type: application/json");
 require_once __DIR__ . '/../../config/db.php';
 
+// =============================================
+// VALIDACIÓN DE SESIÓN ADMIN
+// =============================================
 if (!isset($_SESSION["admin_id"])) {
     echo json_encode(["status" => "ERROR", "mensaje" => "No autorizado"]);
     exit;
 }
 
+// =============================================
+// RECIBIR CÓDIGO DEL QR
+// =============================================
 if (!isset($_GET["codigo"])) {
     echo json_encode(["status" => "ERROR", "mensaje" => "Código no recibido"]);
     exit;
@@ -15,103 +21,119 @@ if (!isset($_GET["codigo"])) {
 
 $codigo = trim($_GET["codigo"]);
 
-// Buscar cupón por código QR
+// =============================================
+// 1. BUSCAR CUPÓN
+// =============================================
 $sql = $conn->prepare("
-    SELECT id, estado, fecha_caducidad, comercio_id
+    SELECT id, estado, fecha_caducidad, comercio_id, usuario_id 
     FROM cupones
     WHERE codigo = ?
+    LIMIT 1
 ");
 $sql->bind_param("s", $codigo);
 $sql->execute();
-$result = $sql->get_result();
+$res = $sql->get_result();
 
-if ($result->num_rows === 0) {
+if ($res->num_rows === 0) {
     echo json_encode(["status" => "ERROR", "mensaje" => "Cupón no encontrado"]);
     exit;
 }
 
-$cupon = $result->fetch_assoc();
+$cupon = $res->fetch_assoc();
+$cupon_id = $cupon["id"];
 
-// Cupón caducado
+// =============================================
+// 2. VALIDAR CADUCADO
+// =============================================
 if (!empty($cupon["fecha_caducidad"]) && strtotime($cupon["fecha_caducidad"]) < time()) {
-
-    $update = $conn->prepare("UPDATE cupones SET estado='caducado' WHERE id=?");
-    $update->bind_param("i", $cupon["id"]);
-    $update->execute();
-
     echo json_encode(["status" => "CADUCADO", "mensaje" => "Cupón caducado"]);
     exit;
 }
 
-// Si ya está usado
+// =============================================
+// 3. VALIDAR ESTADO
+// =============================================
 if ($cupon["estado"] === "usado") {
-    echo json_encode(["status" => "ERROR", "mensaje" => "Cupón ya canjeado"]);
+    echo json_encode(["status" => "ERROR", "mensaje" => "Cupón ya ha sido utilizado completamente"]);
     exit;
 }
 
-// Buscar la siguiente casilla disponible
-$cas = $conn->prepare("
-    SELECT id, numero_casilla 
+// =============================================
+// 4. BUSCAR LA PRÓXIMA CASILLA NO MARCADA
+// =============================================
+$sqlCas = $conn->prepare("
+    SELECT id, numero_casilla
     FROM cupon_casillas
     WHERE cupon_id = ? AND marcada = 0
-    ORDER BY numero_casilla ASC LIMIT 1
+    ORDER BY numero_casilla ASC
+    LIMIT 1
 ");
-$cas->bind_param("i", $cupon["id"]);
-$cas->execute();
-$resCas = $cas->get_result();
+$sqlCas->bind_param("i", $cupon_id);
+$sqlCas->execute();
+$cas = $sqlCas->get_result()->fetch_assoc();
 
-if ($resCas->num_rows === 0) {
-    // No hay casillas → cupón completado previamente
-    echo json_encode(["status" => "INFO", "mensaje" => "Cupón ya está completo"]);
+if (!$cas) {
+    // Si no hay casillas libres → cupón completado
+    $conn->query("UPDATE cupones SET estado='usado' WHERE id=$cupon_id");
+    echo json_encode(["status" => "COMPLETO", "mensaje" => "Cupón ya completado"]);
     exit;
 }
 
-$casilla = $resCas->fetch_assoc();
+$casilla_id = $cas["id"];
+$numero_casilla = $cas["numero_casilla"];
 
-// Marcar casilla
-$upd = $conn->prepare("
+// =============================================
+// 5. MARCAR CASILLA
+// =============================================
+$now = date("Y-m-d H:i:s");
+
+$updCas = $conn->prepare("
     UPDATE cupon_casillas 
-    SET marcada = 1, fecha_marcada = NOW(), comercio_id = ?
+    SET marcada = 1, fecha_marcada = ?
     WHERE id = ?
 ");
-$upd->bind_param("ii", $_SESSION["admin_id"], $casilla["id"]);
-$upd->execute();
+$updCas->bind_param("si", $now, $casilla_id);
+$updCas->execute();
 
-// Registrar validación
-$reg = $conn->prepare("
-    INSERT INTO validaciones (cupon_id, casilla, comercio_id, metodo)
-    VALUES (?, ?, ?, 'QR')
+// =============================================
+// 6. REGISTRAR VALIDACIÓN
+// =============================================
+$metodo = "QR";
+
+$ins = $conn->prepare("
+    INSERT INTO validaciones (cupon_id, casilla, fecha_validacion, metodo)
+    VALUES (?, ?, ?, ?)
 ");
-$reg->bind_param("iii", $cupon["id"], $casilla["numero_casilla"], $_SESSION["admin_id"]);
-$reg->execute();
+$ins->bind_param("iiss", $cupon_id, $numero_casilla, $now, $metodo);
+$ins->execute();
 
-// Verificar si queda alguna casilla sin marcar
-$check = $conn->prepare("
-    SELECT COUNT(*) AS faltan
-    FROM cupon_casillas
-    WHERE cupon_id = ? AND marcada = 0
-");
-$check->bind_param("i", $cupon["id"]);
-$check->execute();
-$rest = $check->get_result()->fetch_assoc();
+// =============================================
+// 7. SI YA NO QUEDAN CASILLAS → MARCAR CUPÓN COMPLETADO
+// =============================================
+$check = $conn->query("
+    SELECT COUNT(*) AS faltan 
+    FROM cupon_casillas 
+    WHERE cupon_id = $cupon_id AND marcada = 0
+")->fetch_assoc();
 
-if ($rest["faltan"] == 0) {
-    $fin = $conn->prepare("UPDATE cupones SET estado='usado' WHERE id = ?");
-    $fin->bind_param("i", $cupon["id"]);
-    $fin->execute();
+if ($check["faltan"] == 0) {
+    $conn->query("UPDATE cupones SET estado='usado' WHERE id=$cupon_id");
 
     echo json_encode([
         "status" => "COMPLETADO",
-        "mensaje" => "Cupón completo. Cupón marcado como usado.",
-        "casilla" => $casilla["numero_casilla"]
+        "mensaje" => "Última casilla marcada. Cupón finalizado.",
+        "casilla" => $numero_casilla
     ]);
     exit;
 }
 
-// Respuesta normal
+// =============================================
+// 8. RESPUESTA OK
+// =============================================
 echo json_encode([
     "status" => "OK",
-    "casilla" => $casilla["numero_casilla"],
-    "mensaje" => "Casilla marcada correctamente"
+    "mensaje" => "Casilla marcada correctamente",
+    "casilla" => $numero_casilla,
+    "fecha" => $now
 ]);
 exit;
