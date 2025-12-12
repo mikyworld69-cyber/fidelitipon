@@ -29,8 +29,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if (!empty($_FILES["logo"]["name"])) {
 
-            // Carpeta correcta en Render
-            $uploadsDir = __DIR__ . "/../../public/uploads/comercios/";
+            // 📌 RUTA CORRECTA PARA RENDER (sin duplicar public)
+            $uploadsDir = $_SERVER['DOCUMENT_ROOT'] . "/uploads/comercios/";
 
             // Crear carpeta si no existe
             if (!is_dir($uploadsDir)) {
@@ -48,17 +48,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 // Nombre seguro y único
                 $logoNombre = "comercio_" . time() . "_" . rand(1000,9999) . "." . $ext;
 
-                // Ruta final
                 $destino = $uploadsDir . $logoNombre;
 
                 if (!move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
-                    $mensaje = "❌ Error moviendo archivo. Render no permite escribir fuera de /public.";
+                    $mensaje = "❌ Error subiendo archivo. Ruta destino no válida.";
                 }
             }
         }
 
         // -------------------------
-        // GUARDAR EN BASE DE DATOS
+        // GUARDAR COMERCIO
         // -------------------------
         $sql = $conn->prepare("
             INSERT INTO comercios (nombre, telefono, logo)
