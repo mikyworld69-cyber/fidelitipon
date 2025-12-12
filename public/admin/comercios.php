@@ -7,71 +7,78 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
-// Obtener lista de comercios
-$comercios = $conn->query("
-    SELECT 
-        c.id,
-        c.nombre,
-        c.telefono,
-        c.logo,
-        (SELECT COUNT(*) FROM cupones WHERE comercio_id = c.id) AS total_cupones
-    FROM comercios c
-    ORDER BY c.id DESC
+// Obtener comercios
+$sql = $conn->query("
+    SELECT id, nombre, telefono, logo
+    FROM comercios
+    ORDER BY id DESC
 ");
-?>
 
-<?php include "_header.php"; ?>
+include "_header.php";
+?>
 
 <h1>Comercios</h1>
 
-<?php if (isset($_GET["deleted"])): ?>
-    <div class="card" style="background:#e74c3c;color:white;padding:12px;border-radius:10px;margin-bottom:15px;">
-        ✔ Comercio eliminado correctamente
+<?php if (isset($_GET["created"])): ?>
+    <div class="card" style="background:#2ecc71;color:white;padding:12px;border-radius:10px;margin-bottom:15px;">
+        ✔ Comercio creado correctamente
     </div>
 <?php endif; ?>
 
-<div style="text-align:right;margin-bottom:15px;">
-    <a href="nuevo_comercio.php" class="btn btn-success">➕ Crear Comercio</a>
-</div>
+<?php if (isset($_GET["deleted"])): ?>
+    <div class="card" style="background:#e74c3c;color:white;padding:12px;border-radius:10px;margin-bottom:15px;">
+        ✔ Comercio eliminado
+    </div>
+<?php endif; ?>
+
+<a href="nuevo_comercio.php" class="btn-success" style="margin-bottom:20px;display:inline-block;">
+    ➕ Nuevo Comercio
+</a>
 
 <div class="card">
-<table>
+<table class="table">
     <tr>
         <th>ID</th>
         <th>Logo</th>
         <th>Nombre</th>
         <th>Teléfono</th>
-        <th>Cupones</th>
         <th>Acciones</th>
     </tr>
 
-    <?php while ($com = $comercios->fetch_assoc()): ?>
-    <tr>
-        <td><?= $com["id"] ?></td>
+    <?php while ($c = $sql->fetch_assoc()): ?>
+        <tr>
+            <td><?= $c["id"] ?></td>
 
-        <td>
-            <?php if ($com["logo"] && file_exists(__DIR__ . "/../../uploads/comercios/" . $com["logo"])): ?>
-                <img src="/uploads/comercios/<?= $com["logo"] ?>" 
-                     style="width:40px;height:40px;border-radius:6px;object-fit:cover;">
-            <?php else: ?>
-                <span style="color:#bbb;">Sin logo</span>
-            <?php endif; ?>
-        </td>
+            <!-- Mostrar logo si existe -->
+            <td style="text-align:center;">
+                <?php if ($c["logo"] && file_exists($_SERVER['DOCUMENT_ROOT'] . "/uploads/comercios/" . $c["logo"])): ?>
+                    <img src="/uploads/comercios/<?= $c["logo"] ?>" 
+                         style="width:55px;height:55px;object-fit:cover;border-radius:8px;border:1px solid #ddd;">
+                <?php else: ?>
+                    <div style="
+                        width:55px;height:55px;
+                        background:#ccc;
+                        border-radius:8px;
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:12px;color:#555;
+                        border:1px solid #aaa;">
+                        N/A
+                    </div>
+                <?php endif; ?>
+            </td>
 
-        <td><?= htmlspecialchars($com["nombre"]) ?></td>
-        <td><?= htmlspecialchars($com["telefono"] ?: "—") ?></td>
-        <td><?= $com["total_cupones"] ?></td>
+            <td><?= htmlspecialchars($c["nombre"]) ?></td>
+            <td><?= htmlspecialchars($c["telefono"] ?: "—") ?></td>
 
-        <td>
-            <a class="btn btn-small" href="ver_comercio.php?id=<?= $com['id'] ?>">👁 Ver</a>
-            <a class="btn btn-small" href="editar_comercio.php?id=<?= $com['id'] ?>">✏ Editar</a>
-            <a class="btn btn-small btn-danger"
-               href="eliminar_comercio.php?id=<?= $com['id'] ?>"
-               onclick="return confirm('¿Eliminar este comercio? Sus cupones también quedarán sin referencia.');">
-               ❌
-            </a>
-        </td>
-    </tr>
+            <td>
+                <a href="editar_comercio.php?id=<?= $c['id'] ?>" class="btn btn-small">✏ Editar</a>
+                <a href="eliminar_comercio.php?id=<?= $c['id'] ?>" 
+                   class="btn-danger btn-small"
+                   onclick="return confirm('¿Seguro que quieres eliminar este comercio?');">
+                   🗑 Eliminar
+                </a>
+            </td>
+        </tr>
     <?php endwhile; ?>
 
 </table>
