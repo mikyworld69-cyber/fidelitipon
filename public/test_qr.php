@@ -1,3 +1,4 @@
 <?php
-require_once __DIR__ . '/../lib/phpqrcode/qrlib.php';
-QRcode::png("PRUEBA QR");
+require_once __DIR__ . '/../lib/phpqrcode/qr_svg.php';
+
+QR_SVG::generate("PRUEBA SVG QR");
