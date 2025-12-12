@@ -17,19 +17,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $nombre   = trim($_POST["nombre"]);
     $telefono = trim($_POST["telefono"]);
-
+    
     if ($nombre === "") {
         $mensaje = "❌ El nombre del comercio es obligatorio.";
     } else {
 
+        $logoNombre = null;
+
         // -------------------------
         // SUBIR LOGO (si existe)
         // -------------------------
-        $logoNombre = null;
-
         if (!empty($_FILES["logo"]["name"])) {
 
-            // 📌 RUTA CORRECTA PARA RENDER (sin duplicar public)
             $uploadsDir = $_SERVER['DOCUMENT_ROOT'] . "/uploads/comercios/";
 
             // Crear carpeta si no existe
@@ -37,39 +36,36 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 mkdir($uploadsDir, 0775, true);
             }
 
-            // Extensión
             $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
 
-            // Validar formato
             if (!in_array($ext, ["jpg", "jpeg", "png", "webp"])) {
-                $mensaje = "❌ Formato no válido. Solo JPG, PNG, WEBP.";
+                $mensaje = "❌ Formato no válido (JPG, PNG, WEBP).";
             } else {
 
-                // Nombre seguro y único
                 $logoNombre = "comercio_" . time() . "_" . rand(1000,9999) . "." . $ext;
-
                 $destino = $uploadsDir . $logoNombre;
 
                 if (!move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
-                    $mensaje = "❌ Error subiendo archivo. Ruta destino no válida.";
+                    $mensaje = "❌ Error moviendo archivo.";
+                    $logoNombre = null;
                 }
             }
         }
 
-        // -------------------------
-        // GUARDAR COMERCIO
-        // -------------------------
-        $sql = $conn->prepare("
-            INSERT INTO comercios (nombre, telefono, logo)
-            VALUES (?, ?, ?)
-        ");
-        $sql->bind_param("sss", $nombre, $telefono, $logoNombre);
+        // Guardar comercio siempre que no haya error
+        if ($mensaje === "") {
+            $sql = $conn->prepare("
+                INSERT INTO comercios (nombre, telefono, logo)
+                VALUES (?, ?, ?)
+            ");
+            $sql->bind_param("sss", $nombre, $telefono, $logoNombre);
 
-        if ($sql->execute()) {
-            header("Location: comercios.php?created=1");
-            exit;
-        } else {
-            $mensaje = "❌ Error guardando el comercio.";
+            if ($sql->execute()) {
+                header("Location: comercios.php?created=1");
+                exit;
+            } else {
+                $mensaje = "❌ Error guardando el comercio.";
+            }
         }
     }
 }
@@ -96,7 +92,7 @@ include "_header.php";
     <input type="text" name="telefono">
 
     <label>Logo (opcional)</label>
-    <input type="file" name="logo" accept="image/*">
+    <input type="file" name="logo">
 
     <button class="btn-success" style="margin-top:15px;">Crear Comercio</button>
 
