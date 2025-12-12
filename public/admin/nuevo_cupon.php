@@ -7,17 +7,13 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
+require_once __DIR__ . '/../../lib/phpqrcode/qr_svg.php';
+
 $mensaje = "";
 
-// ============================
-// Obtener usuarios y comercios
-// ============================
 $usuarios = $conn->query("SELECT id, nombre, telefono FROM usuarios ORDER BY nombre ASC");
 $comercios = $conn->query("SELECT id, nombre FROM comercios ORDER BY nombre ASC");
 
-// ============================
-// GUARDAR CUPÓN
-// ============================
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $usuario_id      = !empty($_POST["usuario_id"]) ? intval($_POST["usuario_id"]) : null;
@@ -26,12 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $descripcion     = trim($_POST["descripcion"]);
     $fecha_caducidad = !empty($_POST["fecha_caducidad"]) ? $_POST["fecha_caducidad"] : null;
 
-    // Código único del cupón
     $codigo = strtoupper(substr(md5(uniqid(rand(), true)), 0, 8));
-
-    // ============================
-    // 1) CREAR CUPÓN EN LA BD
-    // ============================
 
     $sql = $conn->prepare("
         INSERT INTO cupones (comercio_id, usuario_id, codigo, titulo, descripcion, fecha_caducidad, estado)
@@ -50,38 +41,33 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     if ($sql->execute()) {
 
-        // ID del cupón recién creado
         $cupon_id = $sql->insert_id;
 
-        // ==========================================
-        // 2) GENERAR QR AUTOMÁTICO
-        // ==========================================
-
-        require_once __DIR__ . '/../../lib/phpqrcode/qrlib.php';
+        // ============================
+        // GENERAR QR SVG
+        // ============================
 
         $qrDir = $_SERVER["DOCUMENT_ROOT"] . "/uploads/qrs/";
         if (!is_dir($qrDir)) {
             mkdir($qrDir, 0775, true);
         }
 
-        $qrFile = $qrDir . "qr_" . $codigo . ".png";
+        $qrPath = $qrDir . "qr_" . $codigo . ".svg";
+        $qrRelative = "uploads/qrs/qr_" . $codigo . ".svg";
 
-        // Contenido del QR → apunta al validador
-        $qrContenido = "https://fidelitipon.onrender.com/admin/api_validar_qr.php?codigo=" . $codigo;
+        $contenidoQR = "https://fidelitipon.onrender.com/admin/api_validar_qr.php?codigo=" . $codigo;
 
-        // Generar QR
-        QRcode::png($qrContenido, $qrFile, QR_ECLEVEL_L, 8);
+        // Generar SVG
+        QR_SVG::generate($contenidoQR, $qrPath);
 
-        // Guardar ruta del QR en BD
-        $qrRel = "uploads/qrs/qr_" . $codigo . ".png";
-
-        $upd = $conn->prepare("UPDATE cupones SET qr_path=? WHERE id=?");
-        $upd->bind_param("si", $qrRel, $cupon_id);
+        // Guardar la ruta en DB
+        $upd = $conn->prepare("UPDATE cupones SET qr_path = ? WHERE id = ?");
+        $upd->bind_param("si", $qrRelative, $cupon_id);
         $upd->execute();
 
-        // ==========================================
-        // 3) CREAR AUTOMÁTICAMENTE LAS 10 CASILLAS
-        // ==========================================
+        // ============================
+        // CREAR CASILLAS (10)
+        // ============================
 
         for ($i = 1; $i <= 10; $i++) {
             $insCas = $conn->prepare("
@@ -92,9 +78,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $insCas->execute();
         }
 
-        // ==========================================
-        // 4) REDIRIGIR
-        // ==========================================
         header("Location: cupones.php?created=1");
         exit;
 
@@ -115,7 +98,6 @@ include "_header.php";
 <?php endif; ?>
 
 <div class="card">
-
 <form method="POST">
 
     <label>Comercio *</label>
@@ -146,9 +128,7 @@ include "_header.php";
     <input type="date" name="fecha_caducidad">
 
     <button class="btn-success" style="margin-top:15px;">Crear Cupón</button>
-
 </form>
-
 </div>
 
 <?php include "_footer.php"; ?>
