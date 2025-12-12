@@ -8,80 +8,50 @@ if (!isset($_SESSION["admin_id"])) {
 }
 
 $mensaje = "";
-$logoNombre = null;
+$color = "#e74c3c";
 
-/*************************************************
- * PRIMERO — PROCESAR FORMULARIO
- * (ANTES DE IMPRIMIR HTML O INCLUDES)
-*************************************************/
+// Procesar formulario (IMPORTANTE: antes de imprimir HTML)
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $nombre   = trim($_POST["nombre"]);
-    $telefono = trim($_POST["telefono"]);
+    $nombre      = trim($_POST["nombre"]);
+    $telefono    = trim($_POST["telefono"]);
+    $logo_final  = isset($_POST["logo_final"]) ? trim($_POST["logo_final"]) : null;
 
     if ($nombre === "") {
-        $mensaje = "❌ El nombre es obligatorio.";
+        $mensaje = "❌ El nombre del comercio es obligatorio.";
     } else {
 
-        /** SUBIR LOGO **/
-        if (isset($_FILES["logo"]) && $_FILES["logo"]["error"] === UPLOAD_ERR_OK) {
+        // Insertar en BD
+        $sql = $conn->prepare("
+            INSERT INTO comercios (nombre, telefono, logo)
+            VALUES (?, ?, ?)
+        ");
 
-            $uploadsDir = $_SERVER['DOCUMENT_ROOT'] . "/uploads/comercios/";
-            if (!is_dir($uploadsDir)) mkdir($uploadsDir, 0775, true);
+        $sql->bind_param("sss", $nombre, $telefono, $logo_final);
 
-            $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
-
-            if (in_array($ext, ["jpg", "jpeg", "png", "webp"])) {
-
-                $logoNombre = "comercio_" . time() . "_" . rand(1000,9999) . "." . $ext;
-                $destino = $uploadsDir . $logoNombre;
-
-                if (!move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
-                    $mensaje = "❌ Error moviendo archivo.";
-                    $logoNombre = null;
-                }
-
-            } else {
-                $mensaje = "❌ Formato inválido.";
-            }
-        }
-
-        /** GUARDAR SOLO SI NO HUBO ERRORES **/
-        if ($mensaje === "") {
-
-            $sql = $conn->prepare("
-                INSERT INTO comercios (nombre, telefono, logo)
-                VALUES (?, ?, ?)
-            ");
-            $sql->bind_param("sss", $nombre, $telefono, $logoNombre);
-
-            if ($sql->execute()) {
-                header("Location: comercios.php?created=1");
-                exit;
-            } else {
-                $mensaje = "❌ Error guardando en BD.";
-            }
+        if ($sql->execute()) {
+            header("Location: comercios.php?created=1");
+            exit;
+        } else {
+            $mensaje = "❌ Error guardando el comercio en la base de datos.";
         }
     }
 }
 
-/*************************************************
- * DESPUÉS — INCLUDES Y HTML
-*************************************************/
 include "_header.php";
 ?>
 
 <h1>Crear Comercio</h1>
 
 <?php if ($mensaje): ?>
-    <div class="card" style="background:#e74c3c;color:white;padding:12px;border-radius:10px;">
+    <div class="card" style="background:<?= $color ?>;color:white;padding:12px;border-radius:10px;margin-bottom:15px;">
         <?= $mensaje ?>
     </div>
 <?php endif; ?>
 
 <div class="card">
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST">
 
     <label>Nombre *</label>
     <input type="text" name="nombre" required>
@@ -89,10 +59,22 @@ include "_header.php";
     <label>Teléfono</label>
     <input type="text" name="telefono">
 
-    <label>Logo (opcional)</label>
-    <input type="file" name="logo">
+    <label>Logo del Comercio</label>
 
-    <button class="btn-success">Crear Comercio</button>
+    <?php if (isset($_GET["logo"])): ?>
+        <p>Logo seleccionado:</p>
+        <img src="/uploads/comercios/<?= $_GET["logo"] ?>" width="120" style="border-radius:8px;">
+        <input type="hidden" name="logo_final" value="<?= $_GET["logo"] ?>">
+    <?php else: ?>
+        <p style="color:#777;">Ningún logo seleccionado</p>
+    <?php endif; ?>
+
+    <a href="subir_logo.php" class="btn" 
+       style="display:inline-block;padding:10px 15px;background:#3498db;color:white;border-radius:10px;margin-top:10px;text-decoration:none;">
+        📤 Subir Logo
+    </a>
+
+    <button class="btn-success" style="margin-top:20px;">Crear Comercio</button>
 
 </form>
 
