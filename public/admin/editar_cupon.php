@@ -7,157 +7,83 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
-// =======================================
-// VALIDAR ID
-// =======================================
 if (!isset($_GET["id"])) {
-    die("Cupón no especificado.");
+    header("Location: cupones.php");
+    exit;
 }
-$cup_id = intval($_GET["id"]);
 
-// =======================================
-// OBTENER DATOS DEL CUPÓN
-// =======================================
+$id = intval($_GET["id"]);
+
+// Obtener cupón
 $sql = $conn->prepare("
-    SELECT * FROM cupones
+    SELECT id, titulo, descripcion, fecha_caducidad, estado
+    FROM cupones
     WHERE id = ?
 ");
-$sql->bind_param("i", $cup_id);
+$sql->bind_param("i", $id);
 $sql->execute();
 $cup = $sql->get_result()->fetch_assoc();
 
-if (!$cup) {
-    die("Cupón no encontrado.");
-}
+if (!$cup) die("Cupón no encontrado.");
 
 $mensaje = "";
-$success = false;
 
-// =======================================
-// ACTUALIZAR CUPÓN
-// =======================================
+// GUARDAR CAMBIOS
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $titulo      = trim($_POST["titulo"]);
+    $titulo = trim($_POST["titulo"]);
     $descripcion = trim($_POST["descripcion"]);
-    $usuario_id  = !empty($_POST["usuario_id"]) ? intval($_POST["usuario_id"]) : null;
-    $comercio_id = intval($_POST["comercio_id"]);
-    $fecha_cad   = !empty($_POST["fecha_caducidad"]) ? $_POST["fecha_caducidad"] : null;
-    $nuevo_total = intval($_POST["num_casillas"]);
+    $fecha_caducidad = !empty($_POST["fecha_caducidad"]) ? $_POST["fecha_caducidad"] : null;
+    $estado = $_POST["estado"];
 
-    // Actualizar cupón
-    $sqlUp = $conn->prepare("
+    $up = $conn->prepare("
         UPDATE cupones
-        SET titulo = ?, descripcion = ?, usuario_id = ?, comercio_id = ?, fecha_caducidad = ?, total_casillas = ?
+        SET titulo = ?, descripcion = ?, fecha_caducidad = ?, estado = ?
         WHERE id = ?
     ");
+    $up->bind_param("ssssi", $titulo, $descripcion, $fecha_caducidad, $estado, $id);
 
-    $sqlUp->bind_param(
-        "ssissii",
-        $titulo,
-        $descripcion,
-        $usuario_id,
-        $comercio_id,
-        $fecha_cad,
-        $nuevo_total,
-        $cup_id
-    );
-
-    if ($sqlUp->execute()) {
-
-        // ============================================
-        // SI CAMBIÓ EL NÚMERO DE CASILLAS → REGENERAR
-        // ============================================
-        if ($nuevo_total != $cup["total_casillas"]) {
-
-            // Borrar casillas existentes
-            $conn->query("DELETE FROM cupon_casillas WHERE cupon_id = $cup_id");
-
-            // Insertar nuevas casillas
-            $ins = $conn->prepare("
-                INSERT INTO cupon_casillas (cupon_id, numero_casilla, marcada, estado)
-                VALUES (?, ?, 0, 'pendiente')
-            ");
-
-            for ($i = 1; $i <= $nuevo_total; $i++) {
-                $ins->bind_param("ii", $cup_id, $i);
-                $ins->execute();
-            }
-
-            // Resetear casillas marcadas
-            $conn->query("UPDATE cupones SET casillas_marcadas = 0 WHERE id = $cup_id");
-        }
-
-        $success = true;
-        $mensaje = "✔ Cupón actualizado correctamente";
-
-        // Refrescar datos
-        header("Location: editar_cupon.php?id=" . $cup_id . "&ok=1");
+    if ($up->execute()) {
+        header("Location: ver_cupon_admin.php?id=$id");
         exit;
-
     } else {
-        $mensaje = "❌ Error al actualizar el cupón.";
+        $mensaje = "❌ Error al actualizar cupón.";
     }
 }
-
-// ==============================
-// OBTENER LISTA DE USUARIOS
-// ==============================
-$usuarios = $conn->query("SELECT id, nombre, telefono FROM usuarios ORDER BY nombre ASC");
-
-// ==============================
-// OBTENER LISTA DE COMERCIOS
-// ==============================
-$comercios = $conn->query("SELECT id, nombre FROM comercios ORDER BY nombre ASC");
 
 include "_header.php";
 ?>
 
 <h1>Editar Cupón</h1>
 
-<?php if (isset($_GET["ok"])): ?>
-    <div class="card" style="background:#2ecc71;color:white;padding:12px;border-radius:12px;">
-        ✔ Cupón actualizado correctamente
-    </div>
-<?php endif; ?>
-
 <div class="card">
+
+<?php if ($mensaje): ?>
+<div class="error" style="background:#c0392b;padding:10px;color:white;border-radius:10px;">
+    <?= $mensaje ?>
+</div>
+<?php endif; ?>
 
 <form method="POST">
 
     <label>Título *</label>
-    <input type="text" name="titulo" value="<?= htmlspecialchars($cup['titulo']) ?>" required>
+    <input type="text" name="titulo" value="<?= htmlspecialchars($cup["titulo"]) ?>" required>
 
     <label>Descripción</label>
-    <textarea name="descripcion" rows="4"><?= htmlspecialchars($cup['descripcion']) ?></textarea>
+    <textarea name="descripcion" rows="3"><?= htmlspecialchars($cup["descripcion"]) ?></textarea>
 
-    <label>Usuario asignado</label>
-    <select name="usuario_id">
-        <option value="">Sin asignar</option>
-        <?php while ($u = $usuarios->fetch_assoc()): ?>
-            <option value="<?= $u['id'] ?>" <?= $cup['usuario_id']==$u['id']?'selected':'' ?>>
-                <?= htmlspecialchars($u["nombre"]) ?> (<?= $u["telefono"] ?>)
-            </option>
-        <?php endwhile; ?>
+    <label>Fecha de caducidad</label>
+    <input type="date" name="fecha_caducidad"
+           value="<?= $cup["fecha_caducidad"] ?: "" ?>">
+
+    <label>Estado</label>
+    <select name="estado">
+        <option value="activo"   <?= $cup["estado"] == "activo" ? "selected" : "" ?>>Activo</option>
+        <option value="usado"    <?= $cup["estado"] == "usado"  ? "selected" : "" ?>>Usado</option>
+        <option value="caducado" <?= $cup["estado"] == "caducado" ? "selected" : "" ?>>Caducado</option>
     </select>
 
-    <label>Comercio *</label>
-    <select name="comercio_id" required>
-        <?php while ($c = $comercios->fetch_assoc()): ?>
-            <option value="<?= $c['id'] ?>" <?= $cup['comercio_id']==$c['id']?'selected':'' ?>>
-                <?= htmlspecialchars($c["nombre"]) ?>
-            </option>
-        <?php endwhile; ?>
-    </select>
-
-    <label>Fecha caducidad</label>
-    <input type="datetime-local" name="fecha_caducidad"
-        value="<?= $cup['fecha_caducidad'] ? date('Y-m-d\TH:i', strtotime($cup['fecha_caducidad'])) : '' ?>">
-
-    <label>Número de casillas *</label>
-    <input type="number" name="num_casillas" min="1" value="<?= $cup['total_casillas'] ?>" required>
-
-    <button class="btn-success" style="margin-top:15px;">Actualizar Cupón</button>
+    <button class="btn-success" style="margin-top:15px;">Guardar Cambios</button>
 
 </form>
 
