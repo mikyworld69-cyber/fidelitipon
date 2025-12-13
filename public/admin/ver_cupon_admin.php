@@ -8,17 +8,18 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
-// Validar ID
+// =============================
+// VALIDAR ID DE CUPÓN
+// =============================
 if (!isset($_GET["id"])) {
-    die("ID de cupón no recibido");
+    die("ID no recibido.");
 }
 
 $cup_id = intval($_GET["id"]);
 
-// =====================================
+// =============================
 // 1) OBTENER DATOS DEL CUPÓN
-// =====================================
-
+// =============================
 $sql = $conn->prepare("
     SELECT 
         c.id,
@@ -41,13 +42,40 @@ $sql->execute();
 $cup = $sql->get_result()->fetch_assoc();
 
 if (!$cup) {
-    die("Cupón no encontrado");
+    die("Cupón no encontrado.");
 }
 
-// =====================================
-// 2) OBTENER CASILLAS
-// =====================================
+// =============================
+// 2) PROCESAR RESET
+// =============================
+if (isset($_POST["reset"])) {
 
+    // Reset casillas
+    $conn->query("
+        UPDATE cupon_casillas
+        SET marcada = 0,
+            fecha_marcada = NULL,
+            comercio_id = NULL
+        WHERE cupon_id = $cup_id
+    ");
+
+    // Reset estado del cupón
+    $conn->query("
+        UPDATE cupones
+        SET estado = 'activo'
+        WHERE id = $cup_id
+    ");
+
+    // (Opcional) Borrar historial de validaciones
+    // $conn->query("DELETE FROM validaciones WHERE cupon_id = $cup_id");
+
+    header("Location: ver_cupon_admin.php?id=$cup_id&reset_ok=1");
+    exit;
+}
+
+// =============================
+// 3) OBTENER CASILLAS
+// =============================
 $sql = $conn->prepare("
     SELECT numero_casilla, marcada, fecha_marcada, comercio_id
     FROM cupon_casillas
@@ -58,20 +86,20 @@ $sql->bind_param("i", $cup_id);
 $sql->execute();
 $casillas = $sql->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// =====================================
-// 3) OBTENER HISTORIAL DE VALIDACIONES
-// =====================================
-
+// =============================
+// 4) HISTORIAL
+// =============================
 $hist = $conn->query("
     SELECT v.fecha_validacion, v.metodo, com.nombre AS comercio
     FROM validaciones v
-    LEFT JOIN comercios com ON v.comercio_id = com.id
+    LEFT JOIN comercios com ON com.id = v.comercio_id
     WHERE v.cupon_id = $cup_id
     ORDER BY v.fecha_validacion DESC
 ");
 
-
-// Auxiliar
+// =============================
+// FUNCIONES AUX
+// =============================
 function fechaBonita($f) {
     if (!$f) return "—";
     return date("d/m/Y H:i", strtotime($f));
@@ -82,6 +110,7 @@ $estadoColor = [
     "usado" => "#7f8c8d",
     "caducado" => "#c0392b"
 ][$cup["estado"]];
+
 ?>
 
 <style>
@@ -130,6 +159,12 @@ $estadoColor = [
 </style>
 
 <h1>Ver Cupón</h1>
+
+<?php if (isset($_GET["reset_ok"])): ?>
+<div style="background:#2ecc71; padding:12px; color:white; margin-bottom:15px; border-radius:10px;">
+    ✔ El cupón ha sido reseteado correctamente.
+</div>
+<?php endif; ?>
 
 <div class="cupon-box">
 
@@ -200,11 +235,20 @@ $estadoColor = [
             <td><?= htmlspecialchars($h["comercio"] ?: "—") ?></td>
         </tr>
         <?php endwhile; ?>
-    </table>
 
+    </table>
     <?php else: ?>
         <p>No hay validaciones registradas.</p>
     <?php endif; ?>
+
+    <!-- BOTÓN RESET -->
+    <form method="POST" onsubmit="return confirm('⚠ ¿Seguro que deseas resetear todas las casillas?');">
+        <input type="hidden" name="reset" value="1">
+        <button class="btn" 
+            style="background:#e74c3c; color:white; padding:12px; border:none; border-radius:10px; margin-top:20px;">
+            🔄 Resetear Cupón
+        </button>
+    </form>
 
 </div>
 
