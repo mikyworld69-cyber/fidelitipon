@@ -3,3 +3,8 @@
         "minishlink/web-push": "^9.0"
     }
 }
+{
+  "require": {
+    "dompdf/dompdf": "^2.0"
+  }
+}
