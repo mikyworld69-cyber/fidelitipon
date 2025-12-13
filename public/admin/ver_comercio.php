@@ -12,33 +12,33 @@ if (!isset($_GET["id"])) {
     exit;
 }
 
-$id = intval($_GET["id"]);
+$comercio_id = intval($_GET["id"]);
 
 $sql = $conn->prepare("SELECT * FROM comercios WHERE id = ?");
-$sql->bind_param("i", $id);
+$sql->bind_param("i", $comercio_id);
 $sql->execute();
-$com = $sql->get_result()->fetch_assoc();
-
-if (!$com) {
-    die("Comercio no encontrado.");
-}
+$comercio = $sql->get_result()->fetch_assoc();
 
 include "_header.php";
 ?>
 
-<h1>Información del Comercio</h1>
+<h1>Comercio: <?= htmlspecialchars($comercio["nombre"]) ?></h1>
 
 <div class="card">
 
-    <?php if (!empty($com["logo"])): ?>
-        <img src="/file.php?type=comercio&file=<?= basename($com["logo"]) ?>"
-             width="140" style="border-radius:10px; margin-bottom:15px;">
-    <?php endif; ?>
+<p><strong>Logo:</strong></p>
 
-    <p><strong>Nombre:</strong> <?= htmlspecialchars($com["nombre"]) ?></p>
-    <p><strong>Teléfono:</strong> <?= htmlspecialchars($com["telefono"] ?: "—") ?></p>
+<?php if ($comercio["logo"]): ?>
+    <img src="/<?= $comercio["logo"] ?>" style="max-width:180px;border-radius:10px;">
+<?php else: ?>
+    <em>No hay logo</em>
+<?php endif; ?>
 
-    <a class="btn-success" href="editar_comercio.php?id=<?= $com["id"] ?>">✏ Editar Comercio</a>
+<br><br>
+
+<a href="editar_comercio.php?id=<?= $comercio_id ?>" class="btn-primary">Editar Comercio</a>
+<a href="subir_logo.php?id=<?= $comercio_id ?>" class="btn-secondary">Subir Logo</a>
+
 </div>
 
 <?php include "_footer.php"; ?>
