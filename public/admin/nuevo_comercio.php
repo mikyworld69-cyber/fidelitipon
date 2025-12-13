@@ -8,72 +8,58 @@ if (!isset($_SESSION["admin_id"])) {
 }
 
 $mensaje = "";
+$color_msg = "#e74c3c";
 
-// GUARDAR NUEVO COMERCIO
+// Crear comercio
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $nombre = trim($_POST["nombre"]);
     $telefono = trim($_POST["telefono"]);
 
-    $logo_rel = null;
+    if ($nombre !== "") {
 
-    // ----------------------------
-    // SUBIDA DE LOGO AL DISCO PERSISTENTE
-    // ----------------------------
-    if (!empty($_FILES["logo"]["name"])) {
+        $sql = $conn->prepare("
+            INSERT INTO comercios (nombre, telefono)
+            VALUES (?, ?)
+        ");
+        $sql->bind_param("ss", $nombre, $telefono);
 
-        $upload_dir = "/var/data/uploads/comercios/";
-        if (!is_dir($upload_dir)) mkdir($upload_dir, 0775, true);
+        if ($sql->execute()) {
 
-        $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
-        $newname = "comercio_" . time() . "." . $ext;
-        $destino = $upload_dir . $newname;
+            $newID = $conn->insert_id;
 
-        if (move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
-            // ruta relativa para file.php
-            $logo_rel = "uploads/comercios/" . $newname;
+            header("Location: subir_logo.php?id=" . $newID);
+            exit;
+
+        } else {
+            $mensaje = "Error al guardar.";
         }
-    }
 
-    $sql = $conn->prepare("
-        INSERT INTO comercios (nombre, telefono, logo)
-        VALUES (?, ?, ?)
-    ");
-    $sql->bind_param("sss", $nombre, $telefono, $logo_rel);
-
-    if ($sql->execute()) {
-        header("Location: comercios.php");
-        exit;
     } else {
-        $mensaje = "❌ Error al crear el comercio";
+        $mensaje = "El nombre es obligatorio.";
     }
 }
 
 include "_header.php";
 ?>
 
-<h1>Nuevo Comercio</h1>
+<h1>Crear Comercio</h1>
 
 <div class="card">
 
 <?php if ($mensaje): ?>
-    <div class="error" style="background:#e74c3c;color:white;padding:12px;border-radius:10px;">
-        <?= $mensaje ?>
-    </div>
+    <div class="msg" style="background:<?= $color_msg ?>;color:white;padding:12px;border-radius:10px;"><?= $mensaje ?></div>
 <?php endif; ?>
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST">
 
-    <label>Nombre del comercio *</label>
+    <label>Nombre *</label>
     <input type="text" name="nombre" required>
 
-    <label>Teléfono</label>
+    <label>Teléfono (opcional)</label>
     <input type="text" name="telefono">
 
-    <label>Logo (opcional)</label>
-    <input type="file" name="logo" accept="image/*">
-
-    <button class="btn-success" style="margin-top:15px;">Crear Comercio</button>
+    <button class="btn-success" style="margin-top:15px;">Guardar Comercio</button>
 
 </form>
 
