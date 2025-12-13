@@ -124,7 +124,10 @@ td {
 <?php if ($cup["qr_path"]): ?>
 <div class="card" style="text-align:center;">
     <h3>Código QR</h3>
-    <img src="/<?= $cup["qr_path"] ?>" width="230" alt="QR">
+
+    <img src="/file.php?type=qr&file=<?= basename($cup["qr_path"]) ?>"
+         width="230" alt="QR">
+
     <p><strong>Código:</strong> <?= htmlspecialchars($cup["codigo"]) ?></p>
 </div>
 <?php endif; ?>
