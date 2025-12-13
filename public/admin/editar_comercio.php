@@ -12,51 +12,55 @@ if (!isset($_GET["id"])) {
     exit;
 }
 
-$comercio_id = intval($_GET["id"]);
+$id = intval($_GET["id"]);
 
-// Obtener datos del comercio
-$sql = $conn->prepare("SELECT nombre, telefono, logo FROM comercios WHERE id = ?");
-$sql->bind_param("i", $comercio_id);
+$sql = $conn->prepare("SELECT * FROM comercios WHERE id = ?");
+$sql->bind_param("i", $id);
 $sql->execute();
-$comercio = $sql->get_result()->fetch_assoc();
+$com = $sql->get_result()->fetch_assoc();
 
-if (!$comercio) {
+if (!$com) {
     die("Comercio no encontrado.");
 }
 
 $mensaje = "";
-$color = "#e74c3c";
 
-// ------------------------------
-// PROCESAR FORMULARIO
-// ------------------------------
+// ---------------------------------
+// GUARDAR CAMBIOS
+// ---------------------------------
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $nombre    = trim($_POST["nombre"]);
-    $telefono  = trim($_POST["telefono"]);
-    $logo_new  = isset($_POST["logo_final"]) ? trim($_POST["logo_final"]) : null;
+    $nombre = trim($_POST["nombre"]);
+    $telefono = trim($_POST["telefono"]);
+    $logo = $com["logo"];
 
-    // Si no hay logo nuevo → mantener el anterior
-    $logo_final = $logo_new ?: $comercio["logo"];
+    // ¿Nuevo logo?
+    if (!empty($_FILES["logo"]["name"])) {
 
-    if ($nombre === "") {
-        $mensaje = "❌ El nombre del comercio es obligatorio.";
-    } else {
+        $upload_dir = "/var/data/uploads/comercios/";
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0775, true);
 
-        $update = $conn->prepare("
-            UPDATE comercios 
-            SET nombre = ?, telefono = ?, logo = ?
-            WHERE id = ?
-        ");
+        $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
+        $newname = "comercio_" . time() . "." . $ext;
+        $destino = $upload_dir . $newname;
 
-        $update->bind_param("sssi", $nombre, $telefono, $logo_final, $comercio_id);
-
-        if ($update->execute()) {
-            header("Location: comercios.php?updated=1");
-            exit;
-        } else {
-            $mensaje = "❌ Error actualizando el comercio.";
+        if (move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
+            $logo = "uploads/comercios/" . $newname;
         }
+    }
+
+    $up = $conn->prepare("
+        UPDATE comercios
+        SET nombre = ?, telefono = ?, logo = ?
+        WHERE id = ?
+    ");
+    $up->bind_param("sssi", $nombre, $telefono, $logo, $id);
+
+    if ($up->execute()) {
+        header("Location: comercios.php");
+        exit;
+    } else {
+        $mensaje = "❌ Error al guardar cambios.";
     }
 }
 
@@ -65,48 +69,36 @@ include "_header.php";
 
 <h1>Editar Comercio</h1>
 
+<div class="card">
+
 <?php if ($mensaje): ?>
-    <div class="card" style="background:<?= $color ?>;color:white;padding:12px;border-radius:10px;margin-bottom:15px;">
+    <div class="error" style="background:#c0392b;color:white;padding:10px;border-radius:10px;">
         <?= $mensaje ?>
     </div>
 <?php endif; ?>
 
-<div class="card">
-
-<form method="POST">
+<form method="POST" enctype="multipart/form-data">
 
     <label>Nombre *</label>
-    <input type="text" name="nombre" value="<?= htmlspecialchars($comercio["nombre"]) ?>" required>
+    <input type="text" name="nombre" value="<?= htmlspecialchars($com["nombre"]) ?>" required>
 
     <label>Teléfono</label>
-    <input type="text" name="telefono" value="<?= htmlspecialchars($comercio["telefono"]) ?>">
+    <input type="text" name="telefono" value="<?= htmlspecialchars($com["telefono"]) ?>">
 
-    <label>Logo Actual</label>
-
-    <?php if ($comercio["logo"] && file_exists($_SERVER['DOCUMENT_ROOT'] . "/uploads/comercios/" . $comercio["logo"])): ?>
-        <div style="margin-bottom:10px;">
-            <img src="/uploads/comercios/<?= $comercio["logo"] ?>" 
-                 width="120" style="border-radius:8px;border:1px solid #ddd;">
-        </div>
+    <label>Logo actual</label><br>
+    <?php if (!empty($com["logo"])): ?>
+        <img src="/file.php?type=comercio&file=<?= basename($com["logo"]) ?>"
+             width="100" style="border-radius:10px; margin-bottom:10px;">
     <?php else: ?>
-        <p style="color:#777;">No tiene logo</p>
+        <span style="color:#aaa;">Sin logo</span>
     <?php endif; ?>
-
-    <?php if (isset($_GET["logo"])): ?>
-        <p>Nuevo logo seleccionado:</p>
-        <img src="/uploads/comercios/<?= $_GET["logo"] ?>" 
-             width="120" style="border-radius:8px;">
-        <input type="hidden" name="logo_final" value="<?= $_GET["logo"] ?>">
-    <?php endif; ?>
-
-    <a href="subir_logo.php" 
-       style="display:inline-block;margin-top:8px;padding:8px 12px;background:#3498db;color:white;border-radius:8px;text-decoration:none;">
-       📤 Subir Nuevo Logo
-    </a>
 
     <br><br>
 
-    <button class="btn-success">Guardar Cambios</button>
+    <label>Subir nuevo logo</label>
+    <input type="file" name="logo" accept="image/*">
+
+    <button class="btn-success" style="margin-top:15px;">Guardar Cambios</button>
 
 </form>
 
