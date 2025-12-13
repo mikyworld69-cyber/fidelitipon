@@ -18,9 +18,9 @@ RUN apt-get update && apt-get install -y \
 RUN docker-php-ext-install openssl || true
 
 # Configurar Apache para permitir .htaccess
-RUN echo "<Directory /var/www/public/> 
-    AllowOverride All 
-</Directory>" > /etc/apache2/conf-available/override.conf \
+RUN printf "<Directory /var/www/public/>\n\
+    AllowOverride All\n\
+</Directory>\n" > /etc/apache2/conf-available/override.conf \
     && a2enconf override.conf
 
 # COPIAR PROYECTO COMPLETO
@@ -33,14 +33,13 @@ RUN chown -R www-data:www-data /var/www/ \
 # Cambiar DocumentRoot
 RUN sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/sites-available/000-default.conf
 
-# COPIAR COMPOSER
+# Instalar Composer en el contenedor
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# *** AQUÍ ESTÁ LA SOLUCIÓN CRÍTICA ***
-# Cambiar el directorio de trabajo ANTES del composer install
+# Directorio correcto para Composer
 WORKDIR /var/www
 
-# Instalar dependencias del proyecto
+# Instalar dependencias PHP (DOMPDF + WEB PUSH)
 RUN composer install --no-dev --optimize-autoloader
 
 EXPOSE 80
