@@ -8,8 +8,7 @@ if (!isset($_SESSION["admin_id"])) {
 }
 
 if (!isset($_GET["id"])) {
-    header("Location: comercios.php");
-    exit;
+    die("Comercio no válido.");
 }
 
 $comercio_id = intval($_GET["id"]);
@@ -19,25 +18,34 @@ $sql->bind_param("i", $comercio_id);
 $sql->execute();
 $comercio = $sql->get_result()->fetch_assoc();
 
+if (!$comercio) {
+    die("Comercio no encontrado.");
+}
+
 include "_header.php";
+
+// Ruta correcta del logo
+$logoWeb = "/" . ltrim($comercio["logo"], "/");
 ?>
 
 <h1>Comercio: <?= htmlspecialchars($comercio["nombre"]) ?></h1>
 
 <div class="card">
 
-<p><strong>Logo:</strong></p>
+    <?php if (!empty($comercio["logo"])): ?>
+        <p><strong>Logo:</strong></p>
+        <img src="<?= $logoWeb ?>" 
+             alt="Logo comercio" 
+             style="max-width:150px; border:1px solid #ccc; padding:5px; border-radius:8px;">
+        <br><br>
+    <?php endif; ?>
 
-<?php if ($comercio["logo"]): ?>
-    <img src="/<?= $comercio["logo"] ?>" style="max-width:180px;border-radius:10px;">
-<?php else: ?>
-    <em>No hay logo</em>
-<?php endif; ?>
+    <p><strong>Nombre:</strong> <?= htmlspecialchars($comercio["nombre"]) ?></p>
+    <p><strong>Teléfono:</strong> <?= htmlspecialchars($comercio["telefono"]) ?></p>
 
-<br><br>
-
-<a href="editar_comercio.php?id=<?= $comercio_id ?>" class="btn-primary">Editar Comercio</a>
-<a href="subir_logo.php?id=<?= $comercio_id ?>" class="btn-secondary">Subir Logo</a>
+    <br>
+    <a href="editar_comercio.php?id=<?= $comercio_id ?>" class="btn-warning">Editar</a>
+    <a href="comercios.php" class="btn">Volver</a>
 
 </div>
 
