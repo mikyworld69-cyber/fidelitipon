@@ -1,46 +1,50 @@
+# Imagen base
 FROM php:8.2-apache
 
-# --- Extensiones necesarias ---
+# Habilitar mod_rewrite
+RUN a2enmod rewrite
+
+# Instalar dependencias necesarias
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
+    libfreetype6-dev \
+    libonig-dev \
     libxml2-dev \
     zip \
     unzip \
     libsodium-dev \
     libssl-dev \
-    && docker-php-ext-install mysqli pdo pdo_mysql sodium
+    && docker-php-ext-configure gd --with-jpeg \
+    && docker-php-ext-install gd mysqli pdo pdo_mysql sodium
 
-RUN docker-php-ext-install openssl || true
+# Configurar bloque <Directory> correctamente usando heredoc
+RUN cat << 'EOF' > /etc/apache2/conf-available/override.conf
+<Directory /var/www/public/>
+    AllowOverride All
+    Require all granted
+</Directory>
+EOF
 
-# Activar mod_rewrite
-RUN a2enmod rewrite
-
-# Configurar Apache para permitir .htaccess
-RUN echo "<Directory /var/www/public/> \
-    AllowOverride All \
-</Directory>" > /etc/apache2/conf-available/override.conf \
-    && a2enconf override.conf
+RUN a2enconf override.conf
 
 # Copiar proyecto
 COPY . /var/www/
 
-# Ajustar DocumentRoot
+# Cambiar DocumentRoot a /var/www/public
 RUN sed -i 's|/var/www/html|/var/www/public|g' /etc/apache2/sites-available/000-default.conf
 
-# Crear carpetas necesarias (no afecta a symlinks)
-RUN mkdir -p /var/www/public/uploads
+# Asegurar permisos
+RUN chown -R www-data:www-data /var/www/ \
+    && chmod -R 755 /var/www/
 
-# Instalar Composer dentro del contenedor
+# Instalar Composer (desde imagen oficial)
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
-# Instalar dependencias si composer.json existe
-RUN if [ -f "/var/www/composer.json" ]; then \
-        cd /var/www && composer install --no-dev --optimize-autoloader; \
-    else \
-        echo "No composer.json encontrado, saltando instalación"; \
-    fi
+# Ejecutar instalación de dependencias
+RUN cd /var/www && composer install --no-dev --optimize-autoloader || true
 
 EXPOSE 80
 
+# Iniciar Apache
 CMD ["apache2-foreground"]
