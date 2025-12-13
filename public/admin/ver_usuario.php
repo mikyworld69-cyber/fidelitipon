@@ -7,113 +7,86 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
-// Validar ID de usuario
 if (!isset($_GET["id"])) {
-    die("Usuario no especificado.");
+    header("Location: usuarios.php");
+    exit;
 }
 
-$user_id = intval($_GET["id"]);
+$id = intval($_GET["id"]);
 
-// ==============================
-// OBTENER DATOS DEL USUARIO
-// ==============================
+// Obtener info del usuario
 $sql = $conn->prepare("
     SELECT id, nombre, telefono, fecha_registro
     FROM usuarios
     WHERE id = ?
 ");
-$sql->bind_param("i", $user_id);
+$sql->bind_param("i", $id);
 $sql->execute();
-$usuario = $sql->get_result()->fetch_assoc();
+$user = $sql->get_result()->fetch_assoc();
 
-if (!$usuario) {
+if (!$user) {
     die("Usuario no encontrado.");
 }
 
-// ==============================
-// OBTENER CUPONES DEL USUARIO
-// ==============================
-$cupones = $conn->prepare("
-    SELECT 
-        id, titulo, estado, fecha_caducidad, total_casillas, casillas_marcadas
+// Obtener cupones del usuario
+$sqlC = $conn->prepare("
+    SELECT id, titulo, estado, fecha_caducidad
     FROM cupones
     WHERE usuario_id = ?
     ORDER BY id DESC
 ");
-$cupones->bind_param("i", $user_id);
-$cupones->execute();
-$res_cupones = $cupones->get_result();
+$sqlC->bind_param("i", $id);
+$sqlC->execute();
+$cupones = $sqlC->get_result();
 
 include "_header.php";
 ?>
 
-<h1>Usuario: <?= htmlspecialchars($usuario["nombre"]) ?></h1>
+<h1>Usuario: <?= htmlspecialchars($user["nombre"]) ?></h1>
 
 <div class="card">
-    <p><strong>Teléfono:</strong> <?= htmlspecialchars($usuario["telefono"]) ?></p>
-    <p><strong>Registrado el:</strong> <?= date("d/m/Y H:i", strtotime($usuario["fecha_registro"])) ?></p>
+    <p><strong>ID:</strong> <?= $user["id"] ?></p>
+    <p><strong>Teléfono:</strong> <?= htmlspecialchars($user["telefono"]) ?></p>
+    <p><strong>Registrado:</strong> <?= date("d/m/Y H:i", strtotime($user["fecha_registro"])) ?></p>
 </div>
 
 <h2>Cupones del Usuario</h2>
 
-<?php if ($res_cupones->num_rows === 0): ?>
-    <div class="card">
-        <p>Este usuario no tiene cupones.</p>
-    </div>
+<div class="card">
 
-<?php else: ?>
+    <?php if ($cupones->num_rows === 0): ?>
+        <p style="color:#888;">Este usuario no tiene cupones.</p>
+    <?php else: ?>
 
-    <?php while ($cup = $res_cupones->fetch_assoc()): ?>
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Título</th>
+                <th>Estado</th>
+                <th>Caducidad</th>
+                <th>Ver</th>
+            </tr>
 
-        <div class="card" style="margin-bottom:25px;">
-
-            <h3><?= htmlspecialchars($cup["titulo"]) ?></h3>
-
-            <p><strong>Estado:</strong> <?= strtoupper($cup["estado"]) ?></p>
-            <p><strong>Caduca:</strong> 
-                <?= $cup["fecha_caducidad"] 
-                    ? date("d/m/Y H:i", strtotime($cup["fecha_caducidad"])) 
-                    : "—" ?>
-            </p>
-
-            <p><strong>Progreso:</strong> 
-                <?= $cup["casillas_marcadas"] ?> / <?= $cup["total_casillas"] ?>
-            </p>
-
-            <h4>Casillas</h4>
-
-            <?php
-            // Obtener casillas del cupón
-            $casillas = $conn->prepare("
-                SELECT numero_casilla, marcada, estado
-                FROM cupon_casillas
-                WHERE cupon_id = ?
-                ORDER BY numero_casilla ASC
-            ");
-            $cid = $cup["id"];
-            $casillas->bind_param("i", $cid);
-            $casillas->execute();
-            $res_casillas = $casillas->get_result();
-            ?>
-
-            <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:10px;">
-            <?php while ($c = $res_casillas->fetch_assoc()): ?>
-                <div style="
-                    padding:10px;
-                    text-align:center;
-                    border-radius:8px;
-                    color:white;
-                    background: <?= $c['marcada'] ? '#2ecc71' : '#bdc3c7' ?>;
-                ">
-                    <?= $c["numero_casilla"] ?>
-                </div>
+            <?php while ($c = $cupones->fetch_assoc()): ?>
+            <tr>
+                <td><?= $c["id"] ?></td>
+                <td><?= htmlspecialchars($c["titulo"]) ?></td>
+                <td><?= strtoupper($c["estado"]) ?></td>
+                <td>
+                    <?= $c["fecha_caducidad"] 
+                        ? date("d/m/Y", strtotime($c["fecha_caducidad"])) 
+                        : "—" ?>
+                </td>
+                <td>
+                    <a href="ver_cupon_admin.php?id=<?= $c["id"] ?>">👁 Ver cupón</a>
+                </td>
+            </tr>
             <?php endwhile; ?>
-            </div>
 
-        </div>
+        </table>
 
-    <?php endwhile; ?>
+    <?php endif; ?>
 
-<?php endif; ?>
+</div>
 
 <?php include "_footer.php"; ?>
