@@ -1,22 +1,23 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/db.php';
-require_once __DIR__ . '/../../lib/phpqrcode/qr_svg.php';
 
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
 }
 
-// Listados
-$usuarios = $conn->query("SELECT id, nombre FROM usuarios ORDER BY nombre ASC");
+// Obtener usuarios
+$usuarios = $conn->query("SELECT id, nombre, telefono FROM usuarios ORDER BY nombre ASC");
+
+// Obtener comercios
 $comercios = $conn->query("SELECT id, nombre FROM comercios ORDER BY nombre ASC");
 
 $mensaje = "";
 
-// ==========================
-//  CREAR CUPÓN
-// ==========================
+// ============================
+// GUARDAR CUPÓN
+// ============================
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $usuario_id      = !empty($_POST["usuario_id"]) ? intval($_POST["usuario_id"]) : null;
@@ -25,38 +26,60 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $descripcion     = trim($_POST["descripcion"]);
     $fecha_caducidad = !empty($_POST["fecha_caducidad"]) ? $_POST["fecha_caducidad"] : null;
 
-    // Código corto único (8 chars)
+    // Código autogenerado
     $codigo = strtoupper(substr(md5(uniqid(rand(), true)), 0, 8));
 
-    // 1) Insertamos el cupón SIN QR aún
+    // Insertar cupón
     $sql = $conn->prepare("
-        INSERT INTO cupones (usuario_id, comercio_id, titulo, descripcion, estado, fecha_caducidad, codigo, qr_path)
-        VALUES (?, ?, ?, ?, 'activo', ?, ?, NULL)
+        INSERT INTO cupones (comercio_id, usuario_id, codigo, titulo, descripcion, fecha_caducidad, estado)
+        VALUES (?, ?, ?, ?, ?, ?, 'ACTIVO')
     ");
-    $sql->bind_param("iissss", $usuario_id, $comercio_id, $titulo, $descripcion, $fecha_caducidad, $codigo);
+
+    $sql->bind_param(
+        "iissss",
+        $comercio_id,
+        $usuario_id,
+        $codigo,
+        $titulo,
+        $descripcion,
+        $fecha_caducidad
+    );
 
     if ($sql->execute()) {
 
-        $cup_id = $sql->insert_id;
+        $nuevoID = $conn->insert_id;
 
-        // 2) Generar QR
-        $qrDir = "/var/data/uploads/qrs/";
+        // ============================
+        // GENERAR QR PNG
+        // ============================
+        require_once __DIR__ . '/../../lib/phpqrcode/qrlib.php';
+
+        $qrDir = __DIR__ . '/../../public/uploads/qrs/';
         if (!is_dir($qrDir)) mkdir($qrDir, 0775, true);
 
-        $qrFile = "qr_" . strtoupper($codigo) . ".svg";
-        $qrFullPath = $qrDir . $qrFile;
+        $qrFile = $qrDir . "qr_" . $codigo . ".png";
 
-        // Contenido del QR: URL, ID o código
-        $qrContent = $codigo;
+        QRcode::png($codigo, $qrFile, QR_ECLEVEL_M, 8);
 
-        QRcode::svg($qrContent, $qrFullPath, 6);
+        // Ruta pública
+        $qrPathPublic = "uploads/qrs/qr_" . $codigo . ".png";
 
-        // 3) Guardar ruta relativa en BD
-        $qrDB = "uploads/qrs/" . $qrFile;
-
-        $up = $conn->prepare("UPDATE cupones SET qr_path = ? WHERE id = ?");
-        $up->bind_param("si", $qrDB, $cup_id);
+        // Guardar QR en la BD
+        $up = $conn->prepare("UPDATE cupones SET qr_path=? WHERE id=?");
+        $up->bind_param("si", $qrPathPublic, $nuevoID);
         $up->execute();
+
+        // ============================
+        // CREAR 10 CASILLAS
+        // ============================
+        for ($i = 1; $i <= 10; $i++) {
+            $ins = $conn->prepare("
+                INSERT INTO cupon_casillas (cupon_id, numero_casilla, marcada)
+                VALUES (?, ?, 0)
+            ");
+            $ins->bind_param("ii", $nuevoID, $i);
+            $ins->execute();
+        }
 
         header("Location: cupones.php");
         exit;
@@ -69,14 +92,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 include "_header.php";
 ?>
 
-<h1>Crear Cupón</h1>
+<h1>Crear Nuevo Cupón</h1>
 
 <div class="card">
 
 <?php if ($mensaje): ?>
-<div class="error" style="background:#e74c3c;padding:10px;color:white;border-radius:10px;margin-bottom:15px;">
-    <?= $mensaje ?>
-</div>
+    <div class="error" style="background:#e74c3c; padding:12px; color:white; border-radius:10px; margin-bottom:15px;">
+        <?= $mensaje ?>
+    </div>
 <?php endif; ?>
 
 <form method="POST">
@@ -85,7 +108,7 @@ include "_header.php";
     <select name="comercio_id" required>
         <option value="">Seleccionar comercio</option>
         <?php while ($c = $comercios->fetch_assoc()): ?>
-            <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c["nombre"]) ?></option>
+            <option value="<?= $c['id'] ?>"><?= htmlspecialchars($c['nombre']) ?></option>
         <?php endwhile; ?>
     </select>
 
@@ -93,7 +116,9 @@ include "_header.php";
     <select name="usuario_id">
         <option value="">Sin asignar</option>
         <?php while ($u = $usuarios->fetch_assoc()): ?>
-            <option value="<?= $u['id'] ?>"><?= htmlspecialchars($u["nombre"]) ?></option>
+            <option value="<?= $u['id'] ?>">
+                <?= htmlspecialchars($u['nombre']) ?> (<?= $u['telefono'] ?>)
+            </option>
         <?php endwhile; ?>
     </select>
 
@@ -101,10 +126,10 @@ include "_header.php";
     <input type="text" name="titulo" required>
 
     <label>Descripción</label>
-    <textarea name="descripcion" rows="3"></textarea>
+    <textarea name="descripcion" rows="4"></textarea>
 
     <label>Fecha de caducidad (opcional)</label>
-    <input type="date" name="fecha_caducidad">
+    <input type="datetime-local" name="fecha_caducidad">
 
     <button class="btn-success" style="margin-top:15px;">Crear Cupón</button>
 
