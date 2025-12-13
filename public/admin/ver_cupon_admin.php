@@ -66,15 +66,31 @@ if (isset($_POST["reset"])) {
         WHERE id = $cup_id
     ");
 
-    // (Opcional) Borrar historial de validaciones
-    // $conn->query("DELETE FROM validaciones WHERE cupon_id = $cup_id");
-
     header("Location: ver_cupon_admin.php?id=$cup_id&reset_ok=1");
     exit;
 }
 
 // =============================
-// 3) OBTENER CASILLAS
+// 3) CAMBIAR ESTADO MANUAL
+// =============================
+if (isset($_POST["cambiar_estado"])) {
+
+    $nuevo_estado = $_POST["estado_nuevo"];
+
+    if (!in_array($nuevo_estado, ["activo", "usado", "caducado"])) {
+        die("Estado inválido");
+    }
+
+    $sql = $conn->prepare("UPDATE cupones SET estado = ? WHERE id = ?");
+    $sql->bind_param("si", $nuevo_estado, $cup_id);
+    $sql->execute();
+
+    header("Location: ver_cupon_admin.php?id=$cup_id&estado_ok=1");
+    exit;
+}
+
+// =============================
+// 4) OBTENER CASILLAS
 // =============================
 $sql = $conn->prepare("
     SELECT numero_casilla, marcada, fecha_marcada, comercio_id
@@ -87,7 +103,7 @@ $sql->execute();
 $casillas = $sql->get_result()->fetch_all(MYSQLI_ASSOC);
 
 // =============================
-// 4) HISTORIAL
+// 5) HISTORIAL
 // =============================
 $hist = $conn->query("
     SELECT v.fecha_validacion, v.metodo, com.nombre AS comercio
@@ -97,9 +113,6 @@ $hist = $conn->query("
     ORDER BY v.fecha_validacion DESC
 ");
 
-// =============================
-// FUNCIONES AUX
-// =============================
 function fechaBonita($f) {
     if (!$f) return "—";
     return date("d/m/Y H:i", strtotime($f));
@@ -110,7 +123,6 @@ $estadoColor = [
     "usado" => "#7f8c8d",
     "caducado" => "#c0392b"
 ][$cup["estado"]];
-
 ?>
 
 <style>
@@ -163,6 +175,12 @@ $estadoColor = [
 <?php if (isset($_GET["reset_ok"])): ?>
 <div style="background:#2ecc71; padding:12px; color:white; margin-bottom:15px; border-radius:10px;">
     ✔ El cupón ha sido reseteado correctamente.
+</div>
+<?php endif; ?>
+
+<?php if (isset($_GET["estado_ok"])): ?>
+<div style="background:#3498db; padding:12px; color:white; margin-bottom:15px; border-radius:10px;">
+    ✔ Estado actualizado correctamente.
 </div>
 <?php endif; ?>
 
@@ -241,8 +259,30 @@ $estadoColor = [
         <p>No hay validaciones registradas.</p>
     <?php endif; ?>
 
+    <hr>
+
+    <!-- CAMBIAR ESTADO -->
+    <h3>Cambiar Estado del Cupón</h3>
+    <form method="POST" style="margin-top:10px;">
+        <input type="hidden" name="cambiar_estado" value="1">
+
+        <select name="estado_nuevo" style="padding:10px; border-radius:8px; margin-right:10px;">
+            <option value="activo"   <?= $cup["estado"]=="activo" ? "selected" : "" ?>>Activo</option>
+            <option value="usado"    <?= $cup["estado"]=="usado" ? "selected" : "" ?>>Usado</option>
+            <option value="caducado" <?= $cup["estado"]=="caducado" ? "selected" : "" ?>>Caducado</option>
+        </select>
+
+        <button class="btn" 
+            style="background:#2980b9; color:white; padding:10px 14px; border:none; border-radius:10px;">
+            💾 Guardar Estado
+        </button>
+    </form>
+
+    <hr>
+
     <!-- BOTÓN RESET -->
-    <form method="POST" onsubmit="return confirm('⚠ ¿Seguro que deseas resetear todas las casillas?');">
+    <form method="POST"
+        onsubmit="return confirm('⚠ ¿Seguro que deseas resetear todas las casillas a 0/10?');">
         <input type="hidden" name="reset" value="1">
         <button class="btn" 
             style="background:#e74c3c; color:white; padding:12px; border:none; border-radius:10px; margin-top:20px;">
