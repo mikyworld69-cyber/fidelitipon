@@ -7,140 +7,196 @@ if (!isset($_SESSION["admin_id"])) {
     exit;
 }
 
-// -------------------------
-// Obtener datos globales
-// -------------------------
+include "_header.php";
 
-$totalUsuarios = $conn->query("SELECT COUNT(*) AS total FROM usuarios")->fetch_assoc()['total'];
-$totalComercios = $conn->query("SELECT COUNT(*) AS total FROM comercios")->fetch_assoc()['total'];
-$totalCupones = $conn->query("SELECT COUNT(*) AS total FROM cupones")->fetch_assoc()['total'];
-$totalValidaciones = $conn->query("SELECT COUNT(*) AS total FROM validaciones")->fetch_assoc()['total'];
+// ===============================
+// RESÚMENES NUMÉRICOS
+// ===============================
 
-// -------------------------
-// Reporte de cupones completos
-// -------------------------
+// Total cupones
+$totalCupones = $conn->query("SELECT COUNT(*) AS t FROM cupones")->fetch_assoc()["t"];
 
-$sqlCupones = $conn->query("
-    SELECT 
+// Cupones usados
+$cuponesUsados = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='usado'")->fetch_assoc()["t"];
+
+// Cupones activos
+$cuponesActivos = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='activo'")->fetch_assoc()["t"];
+
+// Cupones caducados
+$cuponesCaducados = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='caducado'")->fetch_assoc()["t"];
+
+// Validaciones totales
+$totalValidaciones = $conn->query("SELECT COUNT(*) AS t FROM validaciones")->fetch_assoc()["t"];
+
+// Comercios
+$listaComercios = $conn->query("SELECT id, nombre FROM comercios ORDER BY nombre ASC");
+
+
+// ===============================
+// FILTRO DE BÚSQUEDA
+// ===============================
+
+$where = "1";
+
+// Filtrar por comercio
+if (!empty($_GET["comercio"])) {
+    $com = intval($_GET["comercio"]);
+    $where .= " AND c.comercio_id = $com";
+}
+
+// Filtrar por estado
+if (!empty($_GET["estado"])) {
+    $estado = $conn->real_escape_string($_GET["estado"]);
+    $where .= " AND c.estado = '$estado'";
+}
+
+// Filtrar por fecha desde
+if (!empty($_GET["desde"])) {
+    $desde = $_GET["desde"];
+    $where .= " AND c.fecha_caducidad >= '$desde'";
+}
+
+// Filtrar por fecha hasta
+if (!empty($_GET["hasta"])) {
+    $hasta = $_GET["hasta"];
+    $where .= " AND c.fecha_caducidad <= '$hasta'";
+}
+
+// Consulta final
+$sql = "
+    SELECT
         c.id,
         c.titulo,
-        c.descripcion,
         c.estado,
         c.fecha_caducidad,
-        c.codigo,
-        u.nombre AS usuario_nombre,
-        com.nombre AS comercio_nombre,
-        (
-            SELECT COUNT(*) FROM cupon_casillas 
-            WHERE cupon_id = c.id AND marcada = 1
-        ) AS usadas,
-        (
-            SELECT COUNT(*) FROM cupon_casillas 
-            WHERE cupon_id = c.id
-        ) AS total_casillas
+        com.nombre AS comercio,
+        u.nombre AS usuario
     FROM cupones c
-    LEFT JOIN usuarios u ON u.id = c.usuario_id
-    LEFT JOIN comercios com ON com.id = c.comercio_id
+    LEFT JOIN comercios com ON c.comercio_id = com.id
+    LEFT JOIN usuarios u ON c.usuario_id = u.id
+    WHERE $where
     ORDER BY c.id DESC
-");
+";
 
-// -------------------------
+$cupones = $conn->query($sql);
 
-include "_header.php";
+// Para evitar errores en caducidad
+function fecha_legible($f) {
+    if (!$f) return "—";
+    if ($f == "0000-00-00") return "—";
+    return date("d/m/Y", strtotime($f));
+}
+
 ?>
 
-<style>
-.card {
-    background: white;
-    padding: 20px;
-    border-radius: 14px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.10);
-    margin-bottom: 22px;
-}
-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 12px;
-}
-th {
-    background: #3498db;
-    padding: 10px;
-    color: white;
-    font-size: 14px;
-}
-td {
-    padding: 10px;
-    border-bottom: 1px solid #ddd;
-}
-.badge {
-    padding: 4px 10px;
-    border-radius: 8px;
-    color: white;
-    font-size: 12px;
-}
-.badge-activo { background: #27ae60; }
-.badge-usado { background: #7f8c8d; }
-.badge-caducado { background: #c0392b; }
-</style>
+<h1>Reportes</h1>
 
-<h1>📈 Reportes</h1>
+<!-- =============================== -->
+<!-- TARJETAS RESUMEN -->
+<!-- =============================== -->
+<div class="dashboard-cards">
 
-<!-- Tarjetas resumen -->
-<div class="card">
-    <h3>Resumen General</h3>
-    <p><strong>Usuarios:</strong> <?= $totalUsuarios ?></p>
-    <p><strong>Comercios:</strong> <?= $totalComercios ?></p>
-    <p><strong>Cupones generados:</strong> <?= $totalCupones ?></p>
-    <p><strong>Validaciones registradas:</strong> <?= $totalValidaciones ?></p>
+    <div class="stat-card">
+        <p>Total Cupones</p>
+        <h2><?= $totalCupones ?></h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Cupones Activos</p>
+        <h2 style="color:#27ae60;"><?= $cuponesActivos ?></h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Cupones Usados</p>
+        <h2 style="color:#2980b9;"><?= $cuponesUsados ?></h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Cupones Caducados</p>
+        <h2 style="color:#c0392b;"><?= $cuponesCaducados ?></h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Total Validaciones</p>
+        <h2 style="color:#8e44ad;"><?= $totalValidaciones ?></h2>
+    </div>
+
 </div>
 
-<!-- Reporte de cupones -->
-<div class="card">
-    <h3>🎟 Estado de Cupones</h3>
+
+<!-- =============================== -->
+<!-- FILTROS -->
+<!-- =============================== -->
+<div class="card" style="margin-top:20px;">
+
+    <h3>Filtros</h3>
+
+    <form method="GET">
+
+        <label>Comercio:</label>
+        <select name="comercio">
+            <option value="">Todos</option>
+            <?php foreach ($listaComercios as $c): ?>
+                <option value="<?= $c["id"] ?>"
+                    <?= (isset($_GET["comercio"]) && $_GET["comercio"] == $c["id"]) ? "selected" : "" ?>>
+                    <?= htmlspecialchars($c["nombre"]) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <label>Estado:</label>
+        <select name="estado">
+            <option value="">Todos</option>
+            <option value="activo"   <?= isset($_GET["estado"]) && $_GET["estado"]=="activo"   ? "selected":"" ?>>Activo</option>
+            <option value="usado"    <?= isset($_GET["estado"]) && $_GET["estado"]=="usado"    ? "selected":"" ?>>Usado</option>
+            <option value="caducado" <?= isset($_GET["estado"]) && $_GET["estado"]=="caducado" ? "selected":"" ?>>Caducado</option>
+        </select>
+
+        <label>Caducidad desde:</label>
+        <input type="date" name="desde" value="<?= $_GET["desde"] ?? "" ?>">
+
+        <label>Hasta:</label>
+        <input type="date" name="hasta" value="<?= $_GET["hasta"] ?? "" ?>">
+
+        <button class="btn-success" style="margin-top:10px;">Aplicar Filtros</button>
+
+    </form>
+
+</div>
+
+
+<!-- =============================== -->
+<!-- TABLA DE CUPONES -->
+<!-- =============================== -->
+<div class="card" style="margin-top:20px;">
+    <h3>Resultados</h3>
 
     <table>
         <tr>
             <th>ID</th>
-            <th>Código</th>
             <th>Título</th>
-            <th>Estado</th>
-            <th>Usuario</th>
             <th>Comercio</th>
-            <th>Casillas</th>
+            <th>Usuario</th>
+            <th>Estado</th>
             <th>Caducidad</th>
+            <th>Ver</th>
         </tr>
 
-        <?php while ($c = $sqlCupones->fetch_assoc()): 
-
-            $estado = strtolower($c["estado"]);
-            $badgeClass =
-                $estado === "activo"   ? "badge-activo" :
-                ($estado === "usado"   ? "badge-usado" :
-                "badge-caducado");
-        ?>
+        <?php while ($c = $cupones->fetch_assoc()): ?>
         <tr>
             <td><?= $c["id"] ?></td>
-            <td><?= htmlspecialchars($c["codigo"]) ?></td>
             <td><?= htmlspecialchars($c["titulo"]) ?></td>
-            <td><span class="badge <?= $badgeClass ?>"><?= strtoupper($estado) ?></span></td>
-            <td><?= htmlspecialchars($c["usuario_nombre"] ?: "—") ?></td>
-            <td><?= htmlspecialchars($c["comercio_nombre"] ?: "—") ?></td>
-            <td><?= $c["usadas"] ?>/<?= $c["total_casillas"] ?></td>
-
-            <!-- Fecha con fix definitivo -->
-            <td>
-            <?php 
-                if (!empty($c["fecha_caducidad"])) {
-                    echo date("d/m/Y", strtotime($c["fecha_caducidad"]));
-                } else {
-                    echo "<span style='color:#888;'>Sin caducidad</span>";
-                }
-            ?>
-            </td>
+            <td><?= htmlspecialchars($c["comercio"] ?: "—") ?></td>
+            <td><?= htmlspecialchars($c["usuario"] ?: "—") ?></td>
+            <td><?= strtoupper($c["estado"]) ?></td>
+            <td><?= fecha_legible($c["fecha_caducidad"]) ?></td>
+            <td><a href="ver_cupon_admin.php?id=<?= $c["id"] ?>">👁 Ver</a></td>
         </tr>
         <?php endwhile; ?>
 
     </table>
+
 </div>
+
 
 <?php include "_footer.php"; ?>
