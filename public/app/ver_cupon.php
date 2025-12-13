@@ -157,7 +157,7 @@ body {
                       ($estado === "usado" ? "badge-usado" : "badge-caducado");
     ?>
 
-    <span class="badge <?= $badgeClass ?>"><?= strtoupper($cupon["estado"]) ?></span>
+    <span class="badge <?= $badgeClass ?>"><?= strtoupper($estado) ?></span>
 
     <h3 style="margin-top:25px;">Tus casillas</h3>
 
@@ -172,7 +172,10 @@ body {
     <?php if (!empty($cupon["qr_path"])): ?>
     <div class="qr-box">
         <h3>Presenta este QR en el comercio</h3>
-        <img src="/<?= $cupon["qr_path"] ?>" width="230" alt="QR del cupón">
+
+        <img src="/file.php?type=qr&file=<?= basename($cupon["qr_path"]) ?>"
+             width="230" alt="QR del cupón">
+
         <p style="font-size:13px;color:#777;">Cada escaneo marca una casilla</p>
     </div>
     <?php endif; ?>
