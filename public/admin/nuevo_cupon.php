@@ -1,8 +1,15 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/db.php';
+
+// =====================
+//  CARGA LIBRERÍA QR
+// =====================
 require_once __DIR__ . '/../../lib/phpqrcode/qrlib.php';
-require_once __DIR__ . '/../../lib/phpqrcode/qr_svg.php';
+
+if (!class_exists("QR_SVG")) {
+    require_once __DIR__ . '/../../lib/phpqrcode/qr_svg.php';
+}
 
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
@@ -49,6 +56,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (!$sql->execute()) {
         $mensaje = "❌ Error al crear el cupón.";
         $color = "#e74c3c";
+
     } else {
 
         $cupon_id = $sql->insert_id;
@@ -58,10 +66,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         // ================
 
         $qr_dir = __DIR__ . "/../../public/uploads/qrs/";
-
-        if (!file_exists($qr_dir)) {
-            mkdir($qr_dir, 0775, true);
-        }
+        if (!is_dir($qr_dir)) mkdir($qr_dir, 0775, true);
 
         $qr_file = $qr_dir . "qr_" . $codigo . ".svg";
 
@@ -77,7 +82,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $upd->bind_param("si", $qr_path_db, $cupon_id);
         $upd->execute();
 
-
         // =====================================================
         //  CREAR LAS 10 CASILLAS
         // =====================================================
@@ -91,7 +95,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute();
         }
 
-        // Redirección final
         header("Location: cupones.php");
         exit;
     }
