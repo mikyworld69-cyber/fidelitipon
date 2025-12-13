@@ -2,159 +2,244 @@
 session_start();
 require_once __DIR__ . '/../../config/db.php';
 
-// Si no está logueado → fuera
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
 }
 
-/* =======================
-   CONSULTAS RESUMEN
-======================= */
+include "_header.php";
 
-// Total usuarios
-$totalUsuarios = $conn->query("SELECT COUNT(*) AS total FROM usuarios")->fetch_assoc()['total'];
 
-// Total comercios
-$totalComercios = $conn->query("SELECT COUNT(*) AS total FROM comercios")->fetch_assoc()['total'];
+// ==================================
+// 1) TARJETAS SUPERIORES (NÚMEROS)
+// ==================================
 
-// Total cupones
-$totalCupones = $conn->query("SELECT COUNT(*) AS total FROM cupones")->fetch_assoc()['total'];
+$totalUsuarios = $conn->query("SELECT COUNT(*) AS t FROM usuarios")->fetch_assoc()["t"];
+$totalComercios = $conn->query("SELECT COUNT(*) AS t FROM comercios")->fetch_assoc()["t"];
+$totalCupones = $conn->query("SELECT COUNT(*) AS t FROM cupones")->fetch_assoc()["t"];
+$totalValidaciones = $conn->query("SELECT COUNT(*) AS t FROM validaciones")->fetch_assoc()["t"];
 
-// Últimos 5 usuarios
-$ultimosUsuarios = $conn->query("
-    SELECT nombre, telefono, fecha_registro 
-    FROM usuarios 
-    ORDER BY fecha_registro DESC 
-    LIMIT 5
+
+// ==================================
+// 2) DISTRIBUCIÓN ESTADOS (DONUT)
+// ==================================
+
+$estados = $conn->query("
+    SELECT estado, COUNT(*) AS total
+    FROM cupones
+    GROUP BY estado
 ");
 
-// Últimos 5 cupones
-$ultimosCupones = $conn->query("
-    SELECT titulo, estado, fecha_caducidad 
-    FROM cupones 
-    ORDER BY id DESC 
-    LIMIT 5
+$labelsEstado = [];
+$dataEstado = [];
+
+while ($e = $estados->fetch_assoc()) {
+    $labelsEstado[] = strtoupper($e["estado"]);
+    $dataEstado[] = intval($e["total"]);
+}
+
+
+// ==================================
+// 3) CUPONES CREADOS POR MES
+// ==================================
+
+$cuponesMes = $conn->query("
+    SELECT DATE_FORMAT(fecha_generado, '%Y-%m') AS mes, COUNT(*) AS total
+    FROM cupones
+    GROUP BY mes
+    ORDER BY mes ASC
 ");
+
+$labelsMes = [];
+$dataMes = [];
+
+while ($m = $cuponesMes->fetch_assoc()) {
+    $labelsMes[] = $m["mes"];
+    $dataMes[] = intval($m["total"]);
+}
+
+
+// ==================================
+// 4) VALIDACIONES POR COMERCIO
+// ==================================
+
+$valCom = $conn->query("
+    SELECT com.nombre AS comercio, COUNT(*) AS total
+    FROM validaciones v
+    LEFT JOIN comercios com ON com.id = v.comercio_id
+    GROUP BY v.comercio_id
+    ORDER BY total DESC
+");
+
+$labelsCom = [];
+$dataCom = [];
+
+while ($v = $valCom->fetch_assoc()) {
+    $labelsCom[] = $v["comercio"];
+    $dataCom[] = intval($v["total"]);
+}
+
+
+// ==================================
+// 5) VALIDACIONES POR MES
+// ==================================
+
+$valMes = $conn->query("
+    SELECT DATE_FORMAT(fecha_validacion, '%Y-%m') AS mes, COUNT(*) AS total
+    FROM validaciones
+    GROUP BY mes
+    ORDER BY mes ASC
+");
+
+$labelsValMes = [];
+$dataValMes = [];
+
+while ($vm = $valMes->fetch_assoc()) {
+    $labelsValMes[] = $vm["mes"];
+    $dataValMes[] = intval($vm["total"]);
+}
+
 ?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Dashboard | Fidelitipon Admin</title>
-<link rel="stylesheet" href="admin.css">
-<style>
-.dashboard-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-}
 
-.stat-card {
-    background: white;
-    padding: 25px;
-    border-radius: 14px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.10);
-    text-align: center;
-}
+<h1>Dashboard</h1>
 
-.stat-card h2 {
-    font-size: 42px;
-    margin: 10px 0;
-    color: #3498db;
-}
+<!-- =============================== -->
+<!-- TARJETAS RESUMEN -->
+<!-- =============================== -->
 
-.stat-card p {
-    font-size: 16px;
-    color: #555;
-}
-</style>
-</head>
+<div class="dashboard-cards">
 
-<body>
+    <div class="stat-card">
+        <p>Usuarios</p>
+        <h2><?= $totalUsuarios ?></h2>
+    </div>
 
-<!-- SIDEBAR -->
-<div class="sidebar">
-    <h2>Fidelitipon</h2>
+    <div class="stat-card">
+        <p>Comercios</p>
+        <h2><?= $totalComercios ?></h2>
+    </div>
 
-    <a href="dashboard.php" class="active">📊 Dashboard</a>
-    <a href="usuarios.php">👤 Usuarios</a>
-    <a href="comercios.php">🏪 Comercios</a>
-    <a href="cupones.php">🎟 Cupones</a>
-    <a href="validar.php">📷 Validar</a>
-    <a href="reportes.php">📈 Reportes</a>
-    <a href="notificaciones.php">🔔 Notificaciones</a>
-    <a href="logout.php">🚪 Salir</a>
+    <div class="stat-card">
+        <p>Cupones</p>
+        <h2><?= $totalCupones ?></h2>
+    </div>
+
+    <div class="stat-card">
+        <p>Validaciones</p>
+        <h2><?= $totalValidaciones ?></h2>
+    </div>
+
 </div>
 
-<!-- CONTENIDO -->
-<div class="content">
 
-    <h1>Panel de Control</h1>
+<!-- =============================== -->
+<!-- GRÁFICO 1: ESTADOS DE CUPONES -->
+<!-- =============================== -->
 
-    <div class="dashboard-cards">
-
-        <div class="stat-card">
-            <p>Usuarios registrados</p>
-            <h2><?= $totalUsuarios ?></h2>
-        </div>
-
-        <div class="stat-card">
-            <p>Comercios activos</p>
-            <h2><?= $totalComercios ?></h2>
-        </div>
-
-        <div class="stat-card">
-            <p>Cupones creados</p>
-            <h2><?= $totalCupones ?></h2>
-        </div>
-
-    </div>
-
-    <!-- Últimos usuarios -->
-    <div class="card">
-        <h3>🧍 Últimos usuarios registrados</h3>
-        <table>
-            <tr>
-                <th>Nombre</th>
-                <th>Teléfono</th>
-                <th>Fecha</th>
-            </tr>
-
-            <?php while ($u = $ultimosUsuarios->fetch_assoc()): ?>
-            <tr>
-                <td><?= htmlspecialchars($u["nombre"] ?: "—") ?></td>
-                <td><?= htmlspecialchars($u["telefono"]) ?></td>
-                <td><?= date("d/m/Y", strtotime($u["fecha_registro"])) ?></td>
-            </tr>
-            <?php endwhile; ?>
-
-        </table>
-    </div>
+<div class="card" style="margin-top:20px;">
+    <h3>Distribución de estados de cupones</h3>
+    <canvas id="chartEstados"></canvas>
+</div>
 
 
-    <!-- Últimos cupones -->
-    <div class="card">
-        <h3>🎟 Últimos cupones generados</h3>
-        <table>
-            <tr>
-                <th>Título</th>
-                <th>Estado</th>
-                <th>Caducidad</th>
-            </tr>
+<!-- =============================== -->
+<!-- GRÁFICO 2: CUPONES POR MES -->
+<!-- =============================== -->
 
-            <?php while ($c = $ultimosCupones->fetch_assoc()): ?>
-            <tr>
-                <td><?= htmlspecialchars($c["titulo"]) ?></td>
-                <td><?= strtoupper($c["estado"]) ?></td>
-                <td><?= date("d/m/Y", strtotime($c["fecha_caducidad"])) ?></td>
-            </tr>
-            <?php endwhile; ?>
+<div class="card" style="margin-top:20px;">
+    <h3>Cupones creados por mes</h3>
+    <canvas id="chartCuponesMes"></canvas>
+</div>
 
-        </table>
-    </div>
 
-</div><!-- content -->
+<!-- =============================== -->
+<!-- GRÁFICO 3: VALIDACIONES POR COMERCIO -->
+<!-- =============================== -->
 
-</body>
-</html>
+<div class="card" style="margin-top:20px;">
+    <h3>Validaciones por comercio</h3>
+    <canvas id="chartComercios"></canvas>
+</div>
+
+
+<!-- =============================== -->
+<!-- GRÁFICO 4: VALIDACIONES POR MES -->
+<!-- =============================== -->
+
+<div class="card" style="margin-top:20px;">
+    <h3>Validaciones por mes</h3>
+    <canvas id="chartValMes"></canvas>
+</div>
+
+
+<!-- =============================== -->
+<!-- SCRIPTS CHART.JS -->
+<!-- =============================== -->
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const labelsEstado = <?= json_encode($labelsEstado) ?>;
+const dataEstado = <?= json_encode($dataEstado) ?>;
+
+new Chart(document.getElementById('chartEstados'), {
+    type: 'doughnut',
+    data: {
+        labels: labelsEstado,
+        datasets: [{
+            data: dataEstado,
+            backgroundColor: ['#27ae60','#2980b9','#c0392b','#8e44ad'],
+        }]
+    }
+});
+
+
+// CUPONES POR MES
+new Chart(document.getElementById('chartCuponesMes'), {
+    type: 'line',
+    data: {
+        labels: <?= json_encode($labelsMes) ?>,
+        datasets: [{
+            label: 'Cupones creados',
+            data: <?= json_encode($dataMes) ?>,
+            borderColor: '#3498db',
+            borderWidth: 3,
+            fill: false,
+            tension: 0.3
+        }]
+    }
+});
+
+
+// VALIDACIONES POR COMERCIO
+new Chart(document.getElementById('chartComercios'), {
+    type: 'bar',
+    data: {
+        labels: <?= json_encode($labelsCom) ?>,
+        datasets: [{
+            label: 'Validaciones',
+            data: <?= json_encode($dataCom) ?>,
+            backgroundColor: '#9b59b6'
+        }]
+    }
+});
+
+
+// VALIDACIONES POR MES
+new Chart(document.getElementById('chartValMes'), {
+    type: 'line',
+    data: {
+        labels: <?= json_encode($labelsValMes) ?>,
+        datasets: [{
+            label: 'Validaciones',
+            data: <?= json_encode($dataValMes) ?>,
+            borderColor: '#2ecc71',
+            borderWidth: 3,
+            fill: false,
+            tension: 0.3
+        }]
+    }
+});
+</script>
+
+<?php include "_footer.php"; ?>
