@@ -8,101 +8,76 @@ if (!isset($_SESSION["admin_id"])) {
 }
 
 if (!isset($_GET["id"])) {
-    die("ID no recibido.");
+    die("Comercio no válido.");
 }
 
-$com_id = intval($_GET["id"]);
+$comercio_id = intval($_GET["id"]);
 $mensaje = "";
-$color_msg = "#e74c3c";
 
 // Obtener comercio
 $sql = $conn->prepare("SELECT nombre, logo FROM comercios WHERE id = ?");
-$sql->bind_param("i", $com_id);
+$sql->bind_param("i", $comercio_id);
 $sql->execute();
-$com = $sql->get_result()->fetch_assoc();
+$comercio = $sql->get_result()->fetch_assoc();
 
-// Procesar subida
+if (!$comercio) {
+    die("Comercio no encontrado.");
+}
+
+// PROCESAR SUBIDA
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    if ($_FILES["logo"]["error"] === 0) {
+    if (!empty($_FILES["logo"]["name"])) {
 
-        $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
-        $permitidas = ["jpg", "jpeg", "png", "webp"];
+        $dir = __DIR__ . "/../../public/uploads/comercios/";
+        $nombreArchivo = "logo_" . $comercio_id . "_" . time() . ".png";
+        $rutaFinal = $dir . $nombreArchivo;
 
-        if (in_array($ext, $permitidas)) {
+        if (!is_dir($dir)) mkdir($dir, 0775, true);
 
-            $nuevo = "logo_" . $com_id . "." . $ext;
-            $ruta = __DIR__ . "/../../public/uploads/comercios/" . $nuevo;
+        if (move_uploaded_file($_FILES["logo"]["tmp_name"], $rutaFinal)) {
 
-            if (move_uploaded_file($_FILES["logo"]["tmp_name"], $ruta)) {
+            // Guardar en BD
+            $rutaDB = "uploads/comercios/" . $nombreArchivo;
 
-                $up = $conn->prepare("UPDATE comercios SET logo=? WHERE id=?");
-                $up->bind_param("si", $nuevo, $com_id);
-                $up->execute();
+            $update = $conn->prepare("UPDATE comercios SET logo = ? WHERE id = ?");
+            $update->bind_param("si", $rutaDB, $comercio_id);
+            $update->execute();
 
-                $mensaje = "✔ Logo actualizado";
-                $color_msg = "#27ae60";
-                $com["logo"] = $nuevo;
-
-            } else {
-                $mensaje = "No se pudo mover el archivo.";
-            }
+            // REDIRIGIR AUTOMÁTICAMENTE
+            header("Location: ver_comercio.php?id=" . $comercio_id);
+            exit;
 
         } else {
-            $mensaje = "Formato no permitido.";
+            $mensaje = "Error al subir archivo.";
         }
-
     } else {
-        $mensaje = "Error al subir archivo.";
+        $mensaje = "No se seleccionó ninguna imagen.";
     }
 }
+
+include "_header.php";
 ?>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Subir Logo</title>
-<link rel="stylesheet" href="admin.css">
 
-<style>
-.box {
-    max-width:420px;
-    margin:30px auto;
-    background:white;
-    padding:25px;
-    border-radius:14px;
-    box-shadow:0 4px 12px rgba(0,0,0,0.12);
-    font-family:Arial;
-}
-.btn { width:100%;padding:14px;background:#3498db;color:white;border:none;border-radius:10px;font-size:16px;cursor:pointer; }
-input[type=file] { width:100%;padding:12px;margin-bottom:20px;border:1px solid #ccc;border-radius:10px; }
-.img-prev { text-align:center;margin-bottom:20px; }
-.img-prev img { max-width:200px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,0.15); }
-.msg { padding:12px;color:white;border-radius:10px;text-align:center;margin-bottom:15px; }
-</style>
+<h1>Subir Logo</h1>
 
-</head>
-<body>
+<div class="card" style="max-width:450px;margin:auto;">
 
-<div class="box">
-
-    <h2 style="text-align:center;color:#3498db;">Subir Logo<br><?= htmlspecialchars($com["nombre"]) ?></h2>
-
-    <?php if ($mensaje): ?>
-        <div class="msg" style="background:<?= $color_msg ?>"><?= $mensaje ?></div>
-    <?php endif; ?>
-
-    <div class="img-prev">
-        <?php if ($com["logo"]): ?>
-            <img src="/uploads/comercios/<?= $com["logo"] ?>">
-        <?php endif; ?>
+<?php if ($mensaje): ?>
+    <div style="background:#c0392b;color:white;padding:10px;border-radius:6px;">
+        <?= $mensaje ?>
     </div>
+<?php endif; ?>
 
-    <form method="POST" enctype="multipart/form-data">
-        <input type="file" name="logo" required>
-        <button class="btn">Guardar Logo</button>
-    </form>
+<p><strong>Comercio:</strong> <?= htmlspecialchars($comercio["nombre"]) ?></p>
+
+<form method="POST" enctype="multipart/form-data">
+    <label>Seleccionar imagen</label>
+    <input type="file" name="logo" accept="image/*" required>
+
+    <button class="btn-success" style="margin-top:15px;">Subir Logo</button>
+</form>
+
 </div>
 
-</body>
-</html>
+<?php include "_footer.php"; ?>
