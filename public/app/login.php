@@ -1,94 +1,125 @@
 <?php
-// ACTIVAR ERRORES EN DESARROLLO (puedes quitarlo en producción)
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
-// Iniciar sesión SIEMPRE antes de cualquier salida
 session_start();
-
-// Cargar conexión
 require_once __DIR__ . '/../../config/db.php';
 
-$mensaje_error = "";
+$mensaje = "";
 
-// Procesar formulario
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+// Si ya está logueado
+if (isset($_SESSION["usuario_id"])) {
+    header("Location: panel_usuario.php");
+    exit;
+}
 
-    $telefono = trim($_POST['telefono'] ?? "");
-    $password = trim($_POST['password'] ?? "");
+// Login
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $telefono = trim($_POST["telefono"]);
+    $password = trim($_POST["password"]);
 
-    if ($telefono === "" || $password === "") {
-        $mensaje_error = "Debes introducir teléfono y contraseña.";
-    } else {
+    $sql = $conn->prepare("SELECT id, password FROM usuarios WHERE telefono = ?");
+    $sql->bind_param("s", $telefono);
+    $sql->execute();
+    $res = $sql->get_result();
 
-        // Consulta de usuario
-        $stmt = $conn->prepare("SELECT id, password FROM usuarios WHERE telefono = ?");
-        $stmt->bind_param("s", $telefono);
-        $stmt->execute();
-        $stmt->store_result();
+    if ($res->num_rows === 1) {
+        $user = $res->fetch_assoc();
 
-        if ($stmt->num_rows === 1) {
-
-            $stmt->bind_result($user_id, $password_hash);
-            $stmt->fetch();
-
-            // Verificación
-            if (password_verify($password, $password_hash)) {
-
-                // Guardar sesión correcta
-                $_SESSION['user_id'] = $user_id;
-
-                // Redirección al panel
-                header("Location: panel_usuario.php");
-                exit;
-
-            } else {
-                $mensaje_error = "La contraseña es incorrecta.";
-            }
-
+        if (password_verify($password, $user["password"])) {
+            $_SESSION["usuario_id"] = $user["id"];
+            header("Location: panel_usuario.php");
+            exit;
         } else {
-            $mensaje_error = "No existe un usuario con ese teléfono.";
+            $mensaje = "❌ Contraseña incorrecta.";
         }
-
-        $stmt->close();
+    } else {
+        $mensaje = "❌ El número no existe.";
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Acceso Usuarios</title>
-<style>
-body { font-family: Arial; background:#f2f2f2; display:flex; justify-content:center; align-items:center; height:100vh; }
-.box { background:white; padding:25px; border-radius:8px; width:300px; box-shadow:0 0 12px rgba(0,0,0,0.1); }
-input, button { width:100%; padding:10px; margin:10px 0; font-size:15px; }
-button { background:#007bff; color:white; border:none; border-radius:6px; cursor:pointer; }
-button:hover { background:#005fcc; }
-.error { color:#d00; text-align:center; }
-</style>
-</head>
+<title>Login | Fidelitipon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
+<style>
+body {
+    background: #f5f6fa;
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.login-box {
+    width: 90%;
+    max-width: 360px;
+    background: white;
+    padding: 25px;
+    border-radius: 14px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.10);
+    text-align: center;
+}
+
+h2 {
+    margin-bottom: 20px;
+    color: #3498db;
+    font-size: 22px;
+}
+
+.input {
+    width: 100%;
+    padding: 10px;
+    font-size: 15px;
+    margin: 10px 0;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+}
+
+.btn {
+    width: 100%;
+    padding: 12px;
+    background: #3498db;
+    color: white;
+    border-radius: 10px;
+    font-size: 16px;
+    border: none;
+    cursor: pointer;
+    margin-top: 10px;
+}
+
+.btn:hover {
+    background: #2980b9;
+}
+
+.error {
+    background: #e74c3c;
+    padding: 10px;
+    color: white;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    font-size: 14px;
+}
+</style>
+
+</head>
 <body>
 
-<div class="box">
-    <h2 style="text-align:center;">Acceder</h2>
+<div class="login-box">
+    <h2>Acceso Usuarios</h2>
 
-    <?php if ($mensaje_error): ?>
-        <p class="error"><?= $mensaje_error ?></p>
+    <?php if ($mensaje): ?>
+        <div class="error"><?= $mensaje ?></div>
     <?php endif; ?>
 
-    <form method="POST" action="login.php">
-        <input type="text" name="telefono" placeholder="Teléfono" required>
-        <input type="password" name="password" placeholder="Contraseña" required>
-        <button type="submit">Entrar</button>
-    </form>
+    <form method="POST">
+        <input type="text" name="telefono" class="input" placeholder="Teléfono" required>
+        <input type="password" name="password" class="input" placeholder="Contraseña" required>
 
-    <div style="text-align:center;">
-        <a href="recuperar.php">¿Has olvidado tu contraseña?</a>
-    </div>
+        <button class="btn">Entrar</button>
+    </form>
 </div>
 
 </body>
