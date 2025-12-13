@@ -8,73 +8,72 @@ if (!isset($_SESSION["admin_id"])) {
 }
 
 $mensaje = "";
-$color = "#e74c3c";
 
-// Procesar formulario (IMPORTANTE: antes de imprimir HTML)
+// GUARDAR NUEVO COMERCIO
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
-    $nombre      = trim($_POST["nombre"]);
-    $telefono    = trim($_POST["telefono"]);
-    $logo_final  = isset($_POST["logo_final"]) ? trim($_POST["logo_final"]) : null;
+    $nombre = trim($_POST["nombre"]);
+    $telefono = trim($_POST["telefono"]);
 
-    if ($nombre === "") {
-        $mensaje = "❌ El nombre del comercio es obligatorio.";
-    } else {
+    $logo_rel = null;
 
-        // Insertar en BD
-        $sql = $conn->prepare("
-            INSERT INTO comercios (nombre, telefono, logo)
-            VALUES (?, ?, ?)
-        ");
+    // ----------------------------
+    // SUBIDA DE LOGO AL DISCO PERSISTENTE
+    // ----------------------------
+    if (!empty($_FILES["logo"]["name"])) {
 
-        $sql->bind_param("sss", $nombre, $telefono, $logo_final);
+        $upload_dir = "/var/data/uploads/comercios/";
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0775, true);
 
-        if ($sql->execute()) {
-            header("Location: comercios.php?created=1");
-            exit;
-        } else {
-            $mensaje = "❌ Error guardando el comercio en la base de datos.";
+        $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
+        $newname = "comercio_" . time() . "." . $ext;
+        $destino = $upload_dir . $newname;
+
+        if (move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
+            // ruta relativa para file.php
+            $logo_rel = "uploads/comercios/" . $newname;
         }
+    }
+
+    $sql = $conn->prepare("
+        INSERT INTO comercios (nombre, telefono, logo)
+        VALUES (?, ?, ?)
+    ");
+    $sql->bind_param("sss", $nombre, $telefono, $logo_rel);
+
+    if ($sql->execute()) {
+        header("Location: comercios.php");
+        exit;
+    } else {
+        $mensaje = "❌ Error al crear el comercio";
     }
 }
 
 include "_header.php";
 ?>
 
-<h1>Crear Comercio</h1>
+<h1>Nuevo Comercio</h1>
+
+<div class="card">
 
 <?php if ($mensaje): ?>
-    <div class="card" style="background:<?= $color ?>;color:white;padding:12px;border-radius:10px;margin-bottom:15px;">
+    <div class="error" style="background:#e74c3c;color:white;padding:12px;border-radius:10px;">
         <?= $mensaje ?>
     </div>
 <?php endif; ?>
 
-<div class="card">
+<form method="POST" enctype="multipart/form-data">
 
-<form method="POST">
-
-    <label>Nombre *</label>
+    <label>Nombre del comercio *</label>
     <input type="text" name="nombre" required>
 
     <label>Teléfono</label>
     <input type="text" name="telefono">
 
-    <label>Logo del Comercio</label>
+    <label>Logo (opcional)</label>
+    <input type="file" name="logo" accept="image/*">
 
-    <?php if (isset($_GET["logo"])): ?>
-        <p>Logo seleccionado:</p>
-        <img src="/uploads/comercios/<?= $_GET["logo"] ?>" width="120" style="border-radius:8px;">
-        <input type="hidden" name="logo_final" value="<?= $_GET["logo"] ?>">
-    <?php else: ?>
-        <p style="color:#777;">Ningún logo seleccionado</p>
-    <?php endif; ?>
-
-    <a href="subir_logo.php" class="btn" 
-       style="display:inline-block;padding:10px 15px;background:#3498db;color:white;border-radius:10px;margin-top:10px;text-decoration:none;">
-        📤 Subir Logo
-    </a>
-
-    <button class="btn-success" style="margin-top:20px;">Crear Comercio</button>
+    <button class="btn-success" style="margin-top:15px;">Crear Comercio</button>
 
 </form>
 
