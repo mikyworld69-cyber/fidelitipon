@@ -9,64 +9,65 @@ if (!isset($_SESSION["admin_id"])) {
 
 include "_header.php";
 
-// ===============================
-// RESÚMENES NUMÉRICOS
-// ===============================
+// =====================================
+// RESÚMENES SUPERIORES (métricas)
+// =====================================
 
 // Total cupones
 $totalCupones = $conn->query("SELECT COUNT(*) AS t FROM cupones")->fetch_assoc()["t"];
 
-// Cupones usados
-$cuponesUsados = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='usado'")->fetch_assoc()["t"];
-
 // Cupones activos
 $cuponesActivos = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='activo'")->fetch_assoc()["t"];
+
+// Cupones usados
+$cuponesUsados = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='usado'")->fetch_assoc()["t"];
 
 // Cupones caducados
 $cuponesCaducados = $conn->query("SELECT COUNT(*) AS t FROM cupones WHERE estado='caducado'")->fetch_assoc()["t"];
 
-// Validaciones totales
+// Total validaciones
 $totalValidaciones = $conn->query("SELECT COUNT(*) AS t FROM validaciones")->fetch_assoc()["t"];
 
-// Comercios
+// Lista comercios para filtros
 $listaComercios = $conn->query("SELECT id, nombre FROM comercios ORDER BY nombre ASC");
 
 
-// ===============================
-// FILTRO DE BÚSQUEDA
-// ===============================
+// =====================================
+// CONSTRUCCIÓN DEL WHERE (Filtros)
+// =====================================
 
 $where = "1";
 
-// Filtrar por comercio
 if (!empty($_GET["comercio"])) {
     $com = intval($_GET["comercio"]);
     $where .= " AND c.comercio_id = $com";
 }
 
-// Filtrar por estado
 if (!empty($_GET["estado"])) {
     $estado = $conn->real_escape_string($_GET["estado"]);
     $where .= " AND c.estado = '$estado'";
 }
 
-// Filtrar por fecha desde
 if (!empty($_GET["desde"])) {
     $desde = $_GET["desde"];
     $where .= " AND c.fecha_caducidad >= '$desde'";
 }
 
-// Filtrar por fecha hasta
 if (!empty($_GET["hasta"])) {
     $hasta = $_GET["hasta"];
     $where .= " AND c.fecha_caducidad <= '$hasta'";
 }
 
-// Consulta final
+
+// =====================================
+// CONSULTA PRINCIPAL DE CUPONES
+// =====================================
+
 $sql = "
     SELECT
         c.id,
         c.titulo,
+        c.descripcion,
         c.estado,
         c.fecha_caducidad,
         com.nombre AS comercio,
@@ -80,20 +81,28 @@ $sql = "
 
 $cupones = $conn->query($sql);
 
-// Para evitar errores en caducidad
+
+// =====================================
+// FUNCIONES AUXILIARES
+// =====================================
+
 function fecha_legible($f) {
-    if (!$f) return "—";
-    if ($f == "0000-00-00") return "—";
+    if (!$f || $f == "0000-00-00" || $f == "0000-00-00 00:00:00") return "—";
     return date("d/m/Y", strtotime($f));
 }
 
 ?>
 
+<!-- =============================== -->
+<!-- TÍTULO -->
+<!-- =============================== -->
+
 <h1>Reportes</h1>
 
 <!-- =============================== -->
-<!-- TARJETAS RESUMEN -->
+<!-- TARJETAS DE MÉTRICAS -->
 <!-- =============================== -->
+
 <div class="dashboard-cards">
 
     <div class="stat-card">
@@ -127,8 +136,8 @@ function fecha_legible($f) {
 <!-- =============================== -->
 <!-- FILTROS -->
 <!-- =============================== -->
-<div class="card" style="margin-top:20px;">
 
+<div class="card" style="margin-top:20px;">
     <h3>Filtros</h3>
 
     <form method="GET">
@@ -147,9 +156,9 @@ function fecha_legible($f) {
         <label>Estado:</label>
         <select name="estado">
             <option value="">Todos</option>
-            <option value="activo"   <?= isset($_GET["estado"]) && $_GET["estado"]=="activo"   ? "selected":"" ?>>Activo</option>
-            <option value="usado"    <?= isset($_GET["estado"]) && $_GET["estado"]=="usado"    ? "selected":"" ?>>Usado</option>
-            <option value="caducado" <?= isset($_GET["estado"]) && $_GET["estado"]=="caducado" ? "selected":"" ?>>Caducado</option>
+            <option value="activo"   <?= (isset($_GET["estado"]) && $_GET["estado"]=="activo")   ? "selected" : "" ?>>Activo</option>
+            <option value="usado"    <?= (isset($_GET["estado"]) && $_GET["estado"]=="usado")    ? "selected" : "" ?>>Usado</option>
+            <option value="caducado" <?= (isset($_GET["estado"]) && $_GET["estado"]=="caducado") ? "selected" : "" ?>>Caducado</option>
         </select>
 
         <label>Caducidad desde:</label>
@@ -162,19 +171,36 @@ function fecha_legible($f) {
 
     </form>
 
+    <br>
+
+    <!-- BOTONES EXPORTACIÓN -->
+    <a class="btn-success"
+       style="padding:10px 15px; display:inline-block;"
+       href="exportar_reportes.php?<?= http_build_query($_GET) ?>">
+        ⬇ Exportar cupones filtrados (CSV)
+    </a>
+
+    <a class="btn"
+       style="padding:10px 15px; display:inline-block; margin-left:10px;"
+       href="exportar_validaciones.php">
+        ⬇ Exportar validaciones (CSV)
+    </a>
+
 </div>
 
 
 <!-- =============================== -->
-<!-- TABLA DE CUPONES -->
+<!-- TABLA DE RESULTADOS -->
 <!-- =============================== -->
+
 <div class="card" style="margin-top:20px;">
-    <h3>Resultados</h3>
+    <h3>Cupones encontrados</h3>
 
     <table>
         <tr>
             <th>ID</th>
             <th>Título</th>
+            <th>Descripción</th>
             <th>Comercio</th>
             <th>Usuario</th>
             <th>Estado</th>
@@ -186,6 +212,7 @@ function fecha_legible($f) {
         <tr>
             <td><?= $c["id"] ?></td>
             <td><?= htmlspecialchars($c["titulo"]) ?></td>
+            <td><?= htmlspecialchars($c["descripcion"]) ?></td>
             <td><?= htmlspecialchars($c["comercio"] ?: "—") ?></td>
             <td><?= htmlspecialchars($c["usuario"] ?: "—") ?></td>
             <td><?= strtoupper($c["estado"]) ?></td>
@@ -197,6 +224,5 @@ function fecha_legible($f) {
     </table>
 
 </div>
-
 
 <?php include "_footer.php"; ?>
