@@ -42,13 +42,15 @@ WORKDIR /var/www
 # Instalar dependencias PHP (DOMPDF + WEB PUSH)
 RUN composer install --no-dev --optimize-autoloader
 
-EXPOSE 80
-
-CMD ["apache2-foreground"]
-
-# Persistencia en disk render
-RUN rm -rf /var/www/public/uploads && \
+# Crear symlinks hacia el volumen persistente
+RUN mkdir -p /var/data/uploads/comercios && \
+    mkdir -p /var/data/uploads/qrs && \
+    rm -rf /var/www/public/uploads && \
     mkdir -p /var/www/public/uploads && \
     ln -s /var/data/uploads/comercios /var/www/public/uploads/comercios && \
     ln -s /var/data/uploads/qrs /var/www/public/uploads/qrs
 
+
+EXPOSE 80
+
+CMD ["apache2-foreground"]
