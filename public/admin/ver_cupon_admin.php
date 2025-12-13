@@ -1,41 +1,30 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/db.php';
-include "_header.php";
 
 if (!isset($_SESSION["admin_id"])) {
     header("Location: login.php");
     exit;
 }
 
-// =============================
-// VALIDAR ID DE CUPÓN
-// =============================
 if (!isset($_GET["id"])) {
     die("ID no recibido.");
 }
 
 $cup_id = intval($_GET["id"]);
 
-// =============================
-// 1) OBTENER DATOS DEL CUPÓN
-// =============================
+// Obtener cupón
 $sql = $conn->prepare("
     SELECT 
-        c.id,
-        c.titulo,
-        c.descripcion,
-        c.estado,
-        c.fecha_caducidad,
-        c.qr_path,
+        c.*, 
         u.nombre AS usuario_nombre,
         u.telefono AS usuario_telefono,
-        com.nombre AS comercio_nombre
+        com.nombre AS comercio_nombre,
+        com.logo AS comercio_logo
     FROM cupones c
     LEFT JOIN usuarios u ON c.usuario_id = u.id
     LEFT JOIN comercios com ON c.comercio_id = com.id
     WHERE c.id = ?
-    LIMIT 1
 ");
 $sql->bind_param("i", $cup_id);
 $sql->execute();
@@ -45,250 +34,71 @@ if (!$cup) {
     die("Cupón no encontrado.");
 }
 
-// =============================
-// 2) PROCESAR RESET
-// =============================
-if (isset($_POST["reset"])) {
-
-    // Reset casillas
-    $conn->query("
-        UPDATE cupon_casillas
-        SET marcada = 0,
-            fecha_marcada = NULL,
-            comercio_id = NULL
-        WHERE cupon_id = $cup_id
-    ");
-
-    // Reset estado del cupón
-    $conn->query("
-        UPDATE cupones
-        SET estado = 'activo'
-        WHERE id = $cup_id
-    ");
-
-    header("Location: ver_cupon_admin.php?id=$cup_id&reset_ok=1");
-    exit;
-}
-
-// =============================
-// 3) CAMBIAR ESTADO MANUAL
-// =============================
-if (isset($_POST["cambiar_estado"])) {
-
-    $nuevo_estado = $_POST["estado_nuevo"];
-
-    if (!in_array($nuevo_estado, ["activo", "usado", "caducado"])) {
-        die("Estado inválido");
-    }
-
-    $sql = $conn->prepare("UPDATE cupones SET estado = ? WHERE id = ?");
-    $sql->bind_param("si", $nuevo_estado, $cup_id);
-    $sql->execute();
-
-    header("Location: ver_cupon_admin.php?id=$cup_id&estado_ok=1");
-    exit;
-}
-
-// =============================
-// 4) OBTENER CASILLAS
-// =============================
-$sql = $conn->prepare("
-    SELECT numero_casilla, marcada, fecha_marcada, comercio_id
+// Obtener casillas
+$cas = $conn->prepare("
+    SELECT numero_casilla, marcada 
     FROM cupon_casillas
     WHERE cupon_id = ?
     ORDER BY numero_casilla ASC
 ");
-$sql->bind_param("i", $cup_id);
-$sql->execute();
-$casillas = $sql->get_result()->fetch_all(MYSQLI_ASSOC);
+$cas->bind_param("i", $cup_id);
+$cas->execute();
+$casillas = $cas->get_result()->fetch_all(MYSQLI_ASSOC);
 
-// =============================
-// 5) HISTORIAL
-// =============================
-$hist = $conn->query("
-    SELECT v.fecha_validacion, v.metodo, com.nombre AS comercio
-    FROM validaciones v
-    LEFT JOIN comercios com ON com.id = v.comercio_id
-    WHERE v.cupon_id = $cup_id
-    ORDER BY v.fecha_validacion DESC
-");
-
-function fechaBonita($f) {
-    if (!$f) return "—";
-    return date("d/m/Y H:i", strtotime($f));
-}
-
-$estadoColor = [
-    "activo" => "#27ae60",
-    "usado" => "#7f8c8d",
-    "caducado" => "#c0392b"
-][$cup["estado"]];
+include "_header.php";
 ?>
 
-<style>
-.cupon-box {
-    background: white;
-    padding: 25px;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    margin: 20px 0;
-}
-.cupon-title {
-    font-size: 26px;
-    font-weight: bold;
-}
-.badge {
-    padding: 6px 12px;
-    border-radius: 8px;
-    color: white;
-    font-weight: bold;
-}
-.casillas-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 12px;
-    margin-top: 20px;
-}
-.casilla {
-    padding: 15px;
-    border-radius: 12px;
-    background: #ecf0f1;
-    text-align: center;
-    font-size: 18px;
-    font-weight: bold;
-    border: 2px solid #bdc3c7;
-}
-.casilla.marcada {
-    background: #27ae60;
-    color: white;
-    border-color: #1e8449;
-}
-.qr-box img {
-    width: 280px;
-    display: block;
-    margin: 0 auto;
-}
-</style>
+<h1>Detalles del Cupón</h1>
 
-<h1>Ver Cupón</h1>
+<div class="card">
 
-<?php if (isset($_GET["reset_ok"])): ?>
-<div style="background:#2ecc71; padding:12px; color:white; margin-bottom:15px; border-radius:10px;">
-    ✔ El cupón ha sido reseteado correctamente.
-</div>
+<h2><?= htmlspecialchars($cup["titulo"]) ?></h2>
+
+<p><?= nl2br(htmlspecialchars($cup["descripcion"])) ?></p>
+
+<p><strong>Código:</strong> <?= $cup["codigo"] ?></p>
+<p><strong>Estado:</strong> <?= $cup["estado"] ?></p>
+<p><strong>Caducidad:</strong> <?= $cup["fecha_caducidad"] ?: "Sin fecha" ?></p>
+
+<?php if ($cup["qr_path"]): ?>
+    <h3>QR del Cupón</h3>
+    <img src="/<?= $cup["qr_path"] ?>" style="width:200px; border:1px solid #ccc; padding:10px; border-radius:10px;">
 <?php endif; ?>
 
-<?php if (isset($_GET["estado_ok"])): ?>
-<div style="background:#3498db; padding:12px; color:white; margin-bottom:15px; border-radius:10px;">
-    ✔ Estado actualizado correctamente.
-</div>
+<h3>Usuario</h3>
+<p><?= $cup["usuario_nombre"] ?> (<?= $cup["usuario_telefono"] ?>)</p>
+
+<h3>Comercio</h3>
+<p><?= $cup["comercio_nombre"] ?></p>
+
+<?php if ($cup["comercio_logo"]): ?>
+    <img src="/uploads/comercios/<?= $cup["comercio_logo"] ?>" style="width:120px; margin-top:10px;">
 <?php endif; ?>
 
-<div class="cupon-box">
+<h3>Casillas</h3>
 
-    <div class="cupon-title"><?= htmlspecialchars($cup["titulo"]) ?></div>
-
-    <p><?= nl2br(htmlspecialchars($cup["descripcion"])) ?></p>
-
-    <p><strong>Estado:</strong>
-        <span class="badge" style="background:<?= $estadoColor ?>">
-            <?= strtoupper($cup["estado"]) ?>
-        </span>
-    </p>
-
-    <p><strong>Caduca:</strong> <?= fechaBonita($cup["fecha_caducidad"]) ?></p>
-
-    <hr>
-
-    <h3>Usuario</h3>
-    <p>
-        <?= htmlspecialchars($cup["usuario_nombre"] ?: "—") ?><br>
-        Tel: <?= htmlspecialchars($cup["usuario_telefono"] ?: "—") ?>
-    </p>
-
-    <h3>Comercio asignado</h3>
-    <p><?= htmlspecialchars($cup["comercio_nombre"] ?: "—") ?></p>
-
-    <hr>
-
-    <?php if ($cup["qr_path"]): ?>
-    <div class="qr-box">
-        <h3>Código QR</h3>
-        <img src="/<?= $cup["qr_path"] ?>" alt="QR del cupón">
+<div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px;">
+<?php foreach ($casillas as $c): ?>
+    <div style="
+        padding:15px; 
+        text-align:center; 
+        border-radius:8px;
+        background: <?= $c["marcada"] ? '#1abc9c' : '#f4f4f4' ?>;
+        color: <?= $c["marcada"] ? 'white' : 'black' ?>;
+        border:1px solid #ccc;
+    ">
+        <?= $c["numero_casilla"] ?>
     </div>
-    <?php endif; ?>
+<?php endforeach; ?>
+</div>
 
-    <hr>
+<br>
 
-    <h3>Casillas</h3>
-    <div class="casillas-grid">
-        <?php foreach ($casillas as $c): ?>
-        <div class="casilla <?= $c["marcada"] ? 'marcada' : '' ?>">
-            <?= $c["numero_casilla"] ?>
-            <?php if ($c["marcada"]): ?>
-                <div style="font-size:11px; margin-top:4px;">
-                    <?= fechaBonita($c["fecha_marcada"]) ?>
-                </div>
-            <?php endif; ?>
-        </div>
-        <?php endforeach; ?>
-    </div>
-
-    <hr>
-
-    <h3>Historial de Validaciones</h3>
-
-    <?php if ($hist->num_rows > 0): ?>
-    <table>
-        <tr>
-            <th>Fecha</th>
-            <th>Método</th>
-            <th>Comercio</th>
-        </tr>
-
-        <?php while ($h = $hist->fetch_assoc()): ?>
-        <tr>
-            <td><?= fechaBonita($h["fecha_validacion"]) ?></td>
-            <td><?= strtoupper($h["metodo"]) ?></td>
-            <td><?= htmlspecialchars($h["comercio"] ?: "—") ?></td>
-        </tr>
-        <?php endwhile; ?>
-
-    </table>
-    <?php else: ?>
-        <p>No hay validaciones registradas.</p>
-    <?php endif; ?>
-
-    <hr>
-
-    <!-- CAMBIAR ESTADO -->
-    <h3>Cambiar Estado del Cupón</h3>
-    <form method="POST" style="margin-top:10px;">
-        <input type="hidden" name="cambiar_estado" value="1">
-
-        <select name="estado_nuevo" style="padding:10px; border-radius:8px; margin-right:10px;">
-            <option value="activo"   <?= $cup["estado"]=="activo" ? "selected" : "" ?>>Activo</option>
-            <option value="usado"    <?= $cup["estado"]=="usado" ? "selected" : "" ?>>Usado</option>
-            <option value="caducado" <?= $cup["estado"]=="caducado" ? "selected" : "" ?>>Caducado</option>
-        </select>
-
-        <button class="btn" 
-            style="background:#2980b9; color:white; padding:10px 14px; border:none; border-radius:10px;">
-            💾 Guardar Estado
-        </button>
-    </form>
-
-    <hr>
-
-    <!-- BOTÓN RESET -->
-    <form method="POST"
-        onsubmit="return confirm('⚠ ¿Seguro que deseas resetear todas las casillas a 0/10?');">
-        <input type="hidden" name="reset" value="1">
-        <button class="btn" 
-            style="background:#e74c3c; color:white; padding:12px; border:none; border-radius:10px; margin-top:20px;">
-            🔄 Resetear Cupón
-        </button>
-    </form>
+<a href="generar_pdf.php?id=<?= $cup_id ?>" 
+   class="btn" 
+   style="background:#8e44ad; color:white; padding:12px; display:inline-block; margin-top:20px; border-radius:10px;">
+    📄 Descargar PDF
+</a>
 
 </div>
 
