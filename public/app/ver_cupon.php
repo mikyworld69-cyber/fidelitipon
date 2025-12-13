@@ -1,7 +1,9 @@
 <?php
 session_start();
 require_once __DIR__ . '/../../config/db.php';
+include __DIR__ . '/../includes/head_app.php';
 
+// Validar login
 if (!isset($_SESSION["usuario_id"])) {
     header("Location: login.php");
     exit;
@@ -9,6 +11,7 @@ if (!isset($_SESSION["usuario_id"])) {
 
 $user_id = $_SESSION["usuario_id"];
 
+// Validar ID cupón
 if (!isset($_GET["id"])) {
     header("Location: panel_usuario.php");
     exit;
@@ -16,177 +19,159 @@ if (!isset($_GET["id"])) {
 
 $cup_id = intval($_GET["id"]);
 
-// Obtener datos del cupón
+// =======================
+// OBTENER CUPÓN
+// =======================
+
 $sql = $conn->prepare("
-    SELECT 
-        id, titulo, descripcion, estado, fecha_caducidad, qr_path
+    SELECT id, titulo, descripcion, estado, fecha_caducidad, qr_path
     FROM cupones
     WHERE id = ? AND usuario_id = ?
+    LIMIT 1
 ");
 $sql->bind_param("ii", $cup_id, $user_id);
 $sql->execute();
-$cupon = $sql->get_result()->fetch_assoc();
+$cup = $sql->get_result()->fetch_assoc();
 
-if (!$cupon) {
-    die("Cupón no encontrado o no te pertenece.");
+if (!$cup) {
+    die("Cupón no encontrado o no pertenece a tu cuenta.");
 }
 
-// Obtener casillas
-$sqlCas = $conn->prepare("
-    SELECT numero_casilla, marcada
+// =======================
+// OBTENER CASILLAS
+// =======================
+
+$sql = $conn->prepare("
+    SELECT numero_casilla, marcada, fecha_marcada, comercio_id
     FROM cupon_casillas
     WHERE cupon_id = ?
     ORDER BY numero_casilla ASC
 ");
-$sqlCas->bind_param("i", $cup_id);
-$sqlCas->execute();
-$casillas = $sqlCas->get_result();
-?>
-<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<title>Mi Cupón</title>
+$sql->bind_param("i", $cup_id);
+$sql->execute();
+$casillas = $sql->get_result()->fetch_all(MYSQLI_ASSOC);
 
+// =======================
+// FUNCIONES AUX
+// =======================
+
+function fechaBonita($f) {
+    if (!$f) return "";
+    return date("d/m/Y H:i", strtotime($f));
+}
+
+$estadoClass = [
+    "activo" => "badge-activo",
+    "usado" => "badge-usado",
+    "caducado" => "badge-caducado"
+][$cup["estado"]];
+?>
 <link rel="stylesheet" href="/app/app.css">
 
 <style>
-body {
-    background: #f5f6fa;
-    margin: 0;
-    padding-bottom: 90px;
-    font-family: 'Roboto', sans-serif;
-}
 .cupon-box {
     background: white;
-    padding: 22px;
-    margin: 15px;
-    border-radius: 16px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    margin: 20px;
+    padding: 20px;
+    border-radius: 18px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 .cupon-title {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: bold;
 }
 .cupon-desc {
-    margin-top: 7px;
-    color: #666;
+    margin-top: 10px;
+    font-size: 15px;
+    color: #555;
 }
-.badge {
-    display: inline-block;
-    padding: 6px 12px;
-    border-radius: 10px;
-    color: white;
-    font-size: 13px;
-    margin-top: 8px;
-}
-.badge-activo { background: #27ae60; }
-.badge-usado { background: #7f8c8d; }
-.badge-caducado { background: #c0392b; }
-
 .casillas-grid {
-    margin-top: 25px;
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 14px;
+    gap: 10px;
+    margin-top: 20px;
 }
 .casilla {
-    aspect-ratio: 1;
     border-radius: 12px;
-    font-weight: bold;
+    padding: 18px;
     font-size: 18px;
-    color: white;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-.casilla-marcada { background: #27ae60; }
-.casilla-pendiente { background: #bdc3c7; }
-
-.qr-box {
-    margin-top: 30px;
     text-align: center;
+    background: #ecf0f1;
+    color: #2c3e50;
+    font-weight: bold;
+    border: 2px solid #bdc3c7;
+}
+.casilla.marcada {
+    background: #27ae60;
+    color: white;
+    border-color: #1e8449;
+}
+.qr-box {
+    text-align: center;
+    margin-top: 20px;
+}
+.qr-box img {
+    width: 260px;
+    max-width: 100%;
+}
+.completado-box {
     padding: 15px;
-    background: #ffffff;
+    margin-top: 15px;
+    text-align: center;
     border-radius: 14px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-}
-.bottom-nav {
-    position: fixed;
-    bottom: 0; left: 0;
-    width: 100%;
-    display: flex;
-    justify-content: space-around;
-    padding: 12px 0;
-    background: white;
-    border-top: 1px solid #ddd;
-}
-.bottom-nav a {
-    text-decoration: none;
-    color: #4a4a4a;
-}
-.bottom-nav a.active {
-    color: #3498db;
+    background: #2ecc71;
+    color: white;
+    font-size: 18px;
     font-weight: bold;
 }
 </style>
-
-</head>
-<body>
 
 <div class="app-header">Cupón</div>
 
 <div class="cupon-box">
 
-    <div class="cupon-title"><?= htmlspecialchars($cupon["titulo"]) ?></div>
+    <div class="cupon-title"><?= htmlspecialchars($cup["titulo"]) ?></div>
 
-    <div class="cupon-desc"><?= nl2br(htmlspecialchars($cupon["descripcion"])) ?></div>
+    <div class="cupon-desc"><?= nl2br(htmlspecialchars($cup["descripcion"])) ?></div>
 
-    <div style="margin-top:10px;">
+    <div style="margin-top:10px; color:#555;">
         <strong>Caduca:</strong>
-        <?php if (!empty($cupon["fecha_caducidad"])): ?>
-            <?= date("d/m/Y", strtotime($cupon["fecha_caducidad"])) ?>
-        <?php else: ?>
-            <span style="color:#888;">Sin caducidad</span>
-        <?php endif; ?>
+        <?= date("d/m/Y", strtotime($cup["fecha_caducidad"])) ?>
     </div>
 
-    <?php
-        $estado = strtolower($cupon["estado"]);
-        $badgeClass = $estado === "activo" ? "badge-activo" :
-                      ($estado === "usado" ? "badge-usado" : "badge-caducado");
-    ?>
+    <span class="badge <?= $estadoClass ?>" style="margin-top:10px; display:inline-block;">
+        <?= strtoupper($cup["estado"]) ?>
+    </span>
 
-    <span class="badge <?= $badgeClass ?>"><?= strtoupper($estado) ?></span>
+    <!-- QR DEL CUPÓN -->
+    <?php if ($cup["qr_path"]): ?>
+    <div class="qr-box">
+        <img src="/<?= $cup["qr_path"] ?>" alt="QR del cupón">
+    </div>
+    <?php endif; ?>
 
-    <h3 style="margin-top:25px;">Tus casillas</h3>
+    <!-- CASILLAS -->
+    <h3 style="margin-top:20px;">Progreso</h3>
 
     <div class="casillas-grid">
-        <?php while ($c = $casillas->fetch_assoc()): ?>
-            <div class="casilla <?= $c["marcada"] ? "casilla-marcada" : "casilla-pendiente" ?>">
+        <?php foreach ($casillas as $c): ?>
+            <div class="casilla <?= $c["marcada"] ? 'marcada' : '' ?>">
                 <?= $c["numero_casilla"] ?>
             </div>
-        <?php endwhile; ?>
+        <?php endforeach; ?>
     </div>
 
-    <?php if (!empty($cupon["qr_path"])): ?>
-    <div class="qr-box">
-        <h3>Presenta este QR en el comercio</h3>
-
-        <img src="/file.php?type=qr&file=<?= basename($cupon["qr_path"]) ?>"
-             width="230" alt="QR del cupón">
-
-        <p style="font-size:13px;color:#777;">Cada escaneo marca una casilla</p>
+    <!-- COMPLETADO -->
+    <?php if ($cup["estado"] === "usado"): ?>
+    <div class="completado-box">
+        🎉 ¡Cupón completado! Presenta esta pantalla en el comercio.
     </div>
     <?php endif; ?>
 
 </div>
 
 <div class="bottom-nav">
-    <a href="/app/panel_usuario.php" class="active">🏠 Inicio</a>
-    <a href="/app/perfil.php">👤 Perfil</a>
-    <a href="/logout.php">🚪 Salir</a>
+    <a href="panel_usuario.php" class="active">🏠 Inicio</a>
+    <a href="perfil.php">👤 Perfil</a>
+    <a href="../logout.php">🚪 Salir</a>
 </div>
-
-</body>
-</html>
