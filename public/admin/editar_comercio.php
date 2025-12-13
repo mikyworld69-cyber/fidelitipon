@@ -12,55 +12,31 @@ if (!isset($_GET["id"])) {
     exit;
 }
 
-$id = intval($_GET["id"]);
+$comercio_id = intval($_GET["id"]);
+$mensaje = "";
 
+// Obtener comercio
 $sql = $conn->prepare("SELECT * FROM comercios WHERE id = ?");
-$sql->bind_param("i", $id);
+$sql->bind_param("i", $comercio_id);
 $sql->execute();
-$com = $sql->get_result()->fetch_assoc();
+$comercio = $sql->get_result()->fetch_assoc();
 
-if (!$com) {
+if (!$comercio) {
     die("Comercio no encontrado.");
 }
 
-$mensaje = "";
-
-// ---------------------------------
-// GUARDAR CAMBIOS
-// ---------------------------------
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $nombre = trim($_POST["nombre"]);
-    $telefono = trim($_POST["telefono"]);
-    $logo = $com["logo"];
 
-    // ¿Nuevo logo?
-    if (!empty($_FILES["logo"]["name"])) {
+    $update = $conn->prepare("UPDATE comercios SET nombre = ? WHERE id = ?");
+    $update->bind_param("si", $nombre, $comercio_id);
 
-        $upload_dir = "/var/data/uploads/comercios/";
-        if (!is_dir($upload_dir)) mkdir($upload_dir, 0775, true);
-
-        $ext = strtolower(pathinfo($_FILES["logo"]["name"], PATHINFO_EXTENSION));
-        $newname = "comercio_" . time() . "." . $ext;
-        $destino = $upload_dir . $newname;
-
-        if (move_uploaded_file($_FILES["logo"]["tmp_name"], $destino)) {
-            $logo = "uploads/comercios/" . $newname;
-        }
-    }
-
-    $up = $conn->prepare("
-        UPDATE comercios
-        SET nombre = ?, telefono = ?, logo = ?
-        WHERE id = ?
-    ");
-    $up->bind_param("sssi", $nombre, $telefono, $logo, $id);
-
-    if ($up->execute()) {
-        header("Location: comercios.php");
+    if ($update->execute()) {
+        header("Location: ver_comercio.php?id=" . $comercio_id);
         exit;
     } else {
-        $mensaje = "❌ Error al guardar cambios.";
+        $mensaje = "Error al actualizar comercio.";
     }
 }
 
@@ -69,36 +45,29 @@ include "_header.php";
 
 <h1>Editar Comercio</h1>
 
-<div class="card">
+<div class="card" style="max-width:450px;margin:auto;">
 
 <?php if ($mensaje): ?>
-    <div class="error" style="background:#c0392b;color:white;padding:10px;border-radius:10px;">
-        <?= $mensaje ?>
-    </div>
+    <div class="error"><?= $mensaje ?></div>
 <?php endif; ?>
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST">
 
     <label>Nombre *</label>
-    <input type="text" name="nombre" value="<?= htmlspecialchars($com["nombre"]) ?>" required>
+    <input type="text" name="nombre" value="<?= htmlspecialchars($comercio["nombre"]) ?>" required>
 
-    <label>Teléfono</label>
-    <input type="text" name="telefono" value="<?= htmlspecialchars($com["telefono"]) ?>">
+    <p style="margin-top:15px;">
+        <strong>Logo actual:</strong><br>
+        <?php if ($comercio["logo"]): ?>
+            <img src="/<?= $comercio["logo"] ?>" style="max-width:150px;border-radius:8px;margin-top:10px;">
+        <?php else: ?>
+            <em>No hay logo</em>
+        <?php endif; ?>
+    </p>
 
-    <label>Logo actual</label><br>
-    <?php if (!empty($com["logo"])): ?>
-        <img src="/file.php?type=comercio&file=<?= basename($com["logo"]) ?>"
-             width="100" style="border-radius:10px; margin-bottom:10px;">
-    <?php else: ?>
-        <span style="color:#aaa;">Sin logo</span>
-    <?php endif; ?>
+    <a href="subir_logo.php?id=<?= $comercio_id ?>" class="btn-secondary">Subir nuevo logo</a>
 
-    <br><br>
-
-    <label>Subir nuevo logo</label>
-    <input type="file" name="logo" accept="image/*">
-
-    <button class="btn-success" style="margin-top:15px;">Guardar Cambios</button>
+    <button class="btn-success" style="margin-top:15px;">Guardar cambios</button>
 
 </form>
 
