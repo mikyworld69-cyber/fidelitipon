@@ -42,14 +42,14 @@ WORKDIR /var/www
 # Instalar dependencias PHP (DOMPDF + WEB PUSH)
 RUN composer install --no-dev --optimize-autoloader
 
-# Crear symlinks hacia el volumen persistente
+# Crear directorios persistentes y symlinks
 RUN mkdir -p /var/data/uploads/comercios && \
     mkdir -p /var/data/uploads/qrs && \
     rm -rf /var/www/public/uploads && \
     mkdir -p /var/www/public/uploads && \
     ln -s /var/data/uploads/comercios /var/www/public/uploads/comercios && \
-    ln -s /var/data/uploads/qrs /var/www/public/uploads/qrs
-
+    ln -s /var/data/uploads/qrs /var/www/public/uploads/qrs && \
+    chown -R www-data:www-data /var/data/uploads
 
 EXPOSE 80
 
